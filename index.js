@@ -15,7 +15,6 @@ async function queryTable(tableName, predicates = {}) {
   })
   const page = await browser.newPage()
   await page.goto(filePath + tableName + ".html")
-
   await page.waitForSelector("table")
 
   const { where, limit } = predicates
@@ -24,10 +23,8 @@ async function queryTable(tableName, predicates = {}) {
   const query = `table tr${whereSelector}${limitSelector}`
 
   const res = await page.evaluate((query) => {
-    const rows = Array.from(document.querySelectorAll(query))
-    return rows.map((row) => {
-      const attributes = Array.from(row.attributes)
-      return attributes.reduce((acc, { name, value }) => {
+    return Array.from(document.querySelectorAll(query)).map((row) => {
+      return Array.from(row.attributes).reduce((acc, { name, value }) => {
         acc[name] = value
         return acc
       }, {})
