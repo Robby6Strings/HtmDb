@@ -4,12 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node index.js"
+    "dev": "tsc && node dist/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "puppeteer": "^21.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.7"
   }
 }

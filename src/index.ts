@@ -1,15 +1,23 @@
 const puppeteer = require("puppeteer")
 
-const filePath = "file://" + __dirname + "/tables/"
+const filePath = "file://" + __dirname + "/../tables/"
 
-const eq = (a, b) => `${a}="${b}"`
+const eq = (a: string, b: string) => `${a}="${b}"`
 
 async function main() {
   const res = await queryTable("person", { where: [eq("name", "Bob")] })
   console.log(res)
 }
 
-async function queryTable(tableName, predicates = {}) {
+type PredicateOptions = {
+  where?: string[]
+  limit?: number
+}
+
+async function queryTable(
+  tableName: string,
+  predicates: PredicateOptions = {}
+) {
   const browser = await puppeteer.launch({
     headless: "new",
   })
@@ -22,12 +30,12 @@ async function queryTable(tableName, predicates = {}) {
   const limitSelector = limit ? `:nth-child(-n+${limit})` : ""
   const query = `table tr${whereSelector}${limitSelector}`
 
-  const res = await page.evaluate((query) => {
+  const res = await page.evaluate((query: string) => {
     return Array.from(document.querySelectorAll(query)).map((row) => {
       return Array.from(row.attributes).reduce((acc, { name, value }) => {
         acc[name] = value
         return acc
-      }, {})
+      }, {} as any)
     })
   }, query)
 
