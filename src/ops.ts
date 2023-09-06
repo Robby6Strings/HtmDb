@@ -1,5 +1,5 @@
 import jsdom from "jsdom"
-import { PredicateOptions } from "./predicate"
+import { Predicate, PredicateOptions } from "./predicate"
 import { readTable, writeTable } from "./io"
 const { JSDOM } = jsdom
 
@@ -19,25 +19,45 @@ export async function select(
   const table = dom.window.document.querySelector("table")!
 
   const { where, limit } = predicates
-  const whereSelector = where
-    ? where
-        .map((w) => {
-          const { key, value, operator } = w
-          if (operator === "=") return `[${key}="${value}"]`
-          if (operator === "!=") return `:not([${key}="${value}"])`
-          if (operator === ">") return `[${key}^="${value}"]`
-          if (operator === "<") return `[${key}$="${value}"]`
-          if (operator === ">=")
-            return `[${key}^="${value}"],[${key}="${value}"]`
-          if (operator === "<=")
-            return `[${key}$="${value}"],[${key}="${value}"]`
-          if (operator === "contains") return `[${key}*="${value}"]`
-          if (operator === "startsWith") return `[${key}^="${value}"]`
-          if (operator === "endsWith") return `[${key}$="${value}"]`
-        })
-        .join("")
-    : ""
+
   const limitSelector = limit ? `:nth-child(-n+${limit})` : ""
+
+  const equalityOps =
+    where?.filter((w) => w.operator === "=" || w.operator === "!=") || []
+
+  const whereSelector =
+    equalityOps.length > 0
+      ? equalityOps
+          .map((w) => {
+            const { key, value, operator } = w
+            if (operator === "=") return `[${key}="${value}"]`
+            if (operator === "!=") return `:not([${key}="${value}"])`
+          })
+          .join("")
+      : ""
+
+  const rangeOps =
+    where?.filter((w) => w.operator !== "=" && w.operator !== "!=") || []
+
+  if (rangeOps.length > 0) {
+    let rows = Array.from(table.querySelectorAll("tr"))
+
+    for (const op of rangeOps) {
+      const { key, value, operator } = op
+
+      rows = rows.filter((row) => {
+        const rowVal = key === "id" ? row.id : row.getAttribute(key)
+        if (!rowVal) return false
+        if (operator === ">") return parseInt(rowVal) > parseInt(value)
+        if (operator === "<") return parseInt(rowVal) < parseInt(value)
+        if (operator === ">=") return parseInt(rowVal) >= parseInt(value)
+        if (operator === "<=") return parseInt(rowVal) <= parseInt(value)
+      })
+    }
+
+    return rows.map((row) => rowToKv(row))
+  }
+
   const query = `table tr${whereSelector}${limitSelector}`
 
   return Array.from(table.querySelectorAll(query)).map((row) => rowToKv(row))

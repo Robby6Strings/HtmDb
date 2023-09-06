@@ -37,6 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var ops_1 = require("./ops");
+var predicate_1 = require("./predicate");
 function main() {
     return __awaiter(this, void 0, void 0, function () {
         var queryStart, res;
@@ -44,22 +45,11 @@ function main() {
             switch (_a.label) {
                 case 0:
                     queryStart = performance.now();
-                    return [4 /*yield*/, (0, ops_1.upsert)("person", [
-                            {
-                                id: "1",
-                                name: "Simon",
-                                age: "25",
-                            },
-                        ])
-                        // const res = await select("person", {
-                        //   where: [eq("id", "1")],
-                        // })
-                    ];
+                    return [4 /*yield*/, (0, ops_1.select)("person", {
+                            where: [(0, predicate_1.lte)("id", "5"), (0, predicate_1.gt)("id", "2")],
+                        })];
                 case 1:
                     res = _a.sent();
-                    // const res = await select("person", {
-                    //   where: [eq("id", "1")],
-                    // })
                     console.log(res, performance.now() - queryStart + "ms elapsed");
                     return [2 /*return*/];
             }

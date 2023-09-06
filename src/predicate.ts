@@ -9,16 +9,7 @@ export type Predicate = {
   operator: Operator
 }
 
-export type Operator =
-  | "="
-  | "!="
-  | ">"
-  | "<"
-  | ">="
-  | "<="
-  | "contains"
-  | "startsWith"
-  | "endsWith"
+export type Operator = "=" | "!=" | ">" | "<" | ">=" | "<="
 
 export const eq = (a: string, b: string): Predicate => {
   return {

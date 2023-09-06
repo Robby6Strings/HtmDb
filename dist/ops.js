@@ -53,7 +53,7 @@ function rowToKv(row) {
 function select(tableName, predicates) {
     if (predicates === void 0) { predicates = {}; }
     return __awaiter(this, void 0, void 0, function () {
-        var tableStr, dom, table, where, limit, whereSelector, limitSelector, query;
+        var tableStr, dom, table, where, limit, limitSelector, equalityOps, whereSelector, rangeOps, rows, _loop_1, _i, rangeOps_1, op, query;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, (0, io_1.readTable)(tableName)];
@@ -62,32 +62,44 @@ function select(tableName, predicates) {
                     dom = new JSDOM(tableStr);
                     table = dom.window.document.querySelector("table");
                     where = predicates.where, limit = predicates.limit;
-                    whereSelector = where
-                        ? where
+                    limitSelector = limit ? ":nth-child(-n+".concat(limit, ")") : "";
+                    equalityOps = (where === null || where === void 0 ? void 0 : where.filter(function (w) { return w.operator === "=" || w.operator === "!="; })) || [];
+                    whereSelector = equalityOps.length > 0
+                        ? equalityOps
                             .map(function (w) {
                             var key = w.key, value = w.value, operator = w.operator;
                             if (operator === "=")
                                 return "[".concat(key, "=\"").concat(value, "\"]");
                             if (operator === "!=")
                                 return ":not([".concat(key, "=\"").concat(value, "\"])");
-                            if (operator === ">")
-                                return "[".concat(key, "^=\"").concat(value, "\"]");
-                            if (operator === "<")
-                                return "[".concat(key, "$=\"").concat(value, "\"]");
-                            if (operator === ">=")
-                                return "[".concat(key, "^=\"").concat(value, "\"],[").concat(key, "=\"").concat(value, "\"]");
-                            if (operator === "<=")
-                                return "[".concat(key, "$=\"").concat(value, "\"],[").concat(key, "=\"").concat(value, "\"]");
-                            if (operator === "contains")
-                                return "[".concat(key, "*=\"").concat(value, "\"]");
-                            if (operator === "startsWith")
-                                return "[".concat(key, "^=\"").concat(value, "\"]");
-                            if (operator === "endsWith")
-                                return "[".concat(key, "$=\"").concat(value, "\"]");
                         })
                             .join("")
                         : "";
-                    limitSelector = limit ? ":nth-child(-n+".concat(limit, ")") : "";
+                    rangeOps = (where === null || where === void 0 ? void 0 : where.filter(function (w) { return w.operator !== "=" && w.operator !== "!="; })) || [];
+                    if (rangeOps.length > 0) {
+                        rows = Array.from(table.querySelectorAll("tr"));
+                        _loop_1 = function (op) {
+                            var key = op.key, value = op.value, operator = op.operator;
+                            rows = rows.filter(function (row) {
+                                var rowVal = key === "id" ? row.id : row.getAttribute(key);
+                                if (!rowVal)
+                                    return false;
+                                if (operator === ">")
+                                    return parseInt(rowVal) > parseInt(value);
+                                if (operator === "<")
+                                    return parseInt(rowVal) < parseInt(value);
+                                if (operator === ">=")
+                                    return parseInt(rowVal) >= parseInt(value);
+                                if (operator === "<=")
+                                    return parseInt(rowVal) <= parseInt(value);
+                            });
+                        };
+                        for (_i = 0, rangeOps_1 = rangeOps; _i < rangeOps_1.length; _i++) {
+                            op = rangeOps_1[_i];
+                            _loop_1(op);
+                        }
+                        return [2 /*return*/, rows.map(function (row) { return rowToKv(row); })];
+                    }
                     query = "table tr".concat(whereSelector).concat(limitSelector);
                     return [2 /*return*/, Array.from(table.querySelectorAll(query)).map(function (row) { return rowToKv(row); })];
             }
