@@ -37,41 +37,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var ops_1 = require("./ops");
-var eq = function (a, b) { return "".concat(a, "=\"").concat(b, "\""); };
-function selectPerson() {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, (0, ops_1.select)("person", {
-                        where: [eq("id", "1")],
-                    })];
-                case 1: return [2 /*return*/, _a.sent()];
-            }
-        });
-    });
-}
-function insertPerson() {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, (0, ops_1.upsert)("person", [
-                        {
-                            id: "1",
-                            name: "Simon",
-                            age: "25",
-                        },
-                        {
-                            name: "Rob",
-                            age: "30",
-                        },
-                    ])];
-                case 1:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
 function main() {
     return __awaiter(this, void 0, void 0, function () {
         var queryStart, res;
@@ -79,9 +44,22 @@ function main() {
             switch (_a.label) {
                 case 0:
                     queryStart = performance.now();
-                    return [4 /*yield*/, insertPerson()];
+                    return [4 /*yield*/, (0, ops_1.upsert)("person", [
+                            {
+                                id: "1",
+                                name: "Simon",
+                                age: "25",
+                            },
+                        ])
+                        // const res = await select("person", {
+                        //   where: [eq("id", "1")],
+                        // })
+                    ];
                 case 1:
                     res = _a.sent();
+                    // const res = await select("person", {
+                    //   where: [eq("id", "1")],
+                    // })
                     console.log(res, performance.now() - queryStart + "ms elapsed");
                     return [2 /*return*/];
             }

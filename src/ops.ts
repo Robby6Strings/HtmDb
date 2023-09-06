@@ -1,50 +1,54 @@
-import fs from "fs"
-import { pathToFileURL } from "node:url"
-import path from "path"
 import jsdom from "jsdom"
+import { PredicateOptions } from "./predicate"
+import { readTable, writeTable } from "./io"
 const { JSDOM } = jsdom
 
-type PredicateOptions = {
-  where?: string[]
-  limit?: number
+function rowToKv(row: Element): Record<string, string> {
+  return Array.from(row.attributes).reduce((acc, { name, value }) => {
+    acc[name] = value
+    return acc
+  }, {} as any)
 }
 
 export async function select(
   tableName: string,
   predicates: PredicateOptions = {}
 ) {
-  const table = readTable(tableName)
-  const dom = new JSDOM(table)
+  const tableStr = await readTable(tableName)
+  const dom = new JSDOM(tableStr)
+  const table = dom.window.document.querySelector("table")!
 
   const { where, limit } = predicates
-  const whereSelector = where ? where.map((w) => `[${w}]`).join("") : ""
+  const whereSelector = where
+    ? where
+        .map((w) => {
+          const { key, value, operator } = w
+          if (operator === "=") return `[${key}="${value}"]`
+          if (operator === "!=") return `:not([${key}="${value}"])`
+          if (operator === ">") return `[${key}^="${value}"]`
+          if (operator === "<") return `[${key}$="${value}"]`
+          if (operator === ">=")
+            return `[${key}^="${value}"],[${key}="${value}"]`
+          if (operator === "<=")
+            return `[${key}$="${value}"],[${key}="${value}"]`
+          if (operator === "contains") return `[${key}*="${value}"]`
+          if (operator === "startsWith") return `[${key}^="${value}"]`
+          if (operator === "endsWith") return `[${key}$="${value}"]`
+        })
+        .join("")
+    : ""
   const limitSelector = limit ? `:nth-child(-n+${limit})` : ""
   const query = `table tr${whereSelector}${limitSelector}`
 
-  return Array.from(dom.window.document.querySelectorAll(query)).map((row) => {
-    return Array.from(row.attributes).reduce((acc, { name, value }) => {
-      acc[name] = value
-      return acc
-    }, {} as any)
-  })
+  return Array.from(table.querySelectorAll(query)).map((row) => rowToKv(row))
 }
 
-function readTable(tableName: string) {
-  return fs.readFileSync(
-    pathToFileURL(path.join("tables", tableName + ".html")),
-    "utf8"
-  )
-}
-
-function writeTable(tableName: string, table: string) {
-  fs.writeFileSync(
-    pathToFileURL(path.join("tables", tableName + ".html")),
-    table
-  )
-}
-
-export async function upsert(tableName: string, values: any) {
-  const tableStr = readTable(tableName)
+export async function upsert(
+  tableName: string,
+  values: any,
+  returning: boolean = true
+) {
+  const tableStr = await readTable(tableName)
   const dom = new JSDOM(tableStr)
   const table = dom.window.document.querySelector("table")!
   const tBody = table.tBodies[0]
@@ -53,6 +57,7 @@ export async function upsert(tableName: string, values: any) {
   let maxChanged = false
 
   const vals = Array.isArray(values) ? values : [values]
+  const returnVals = []
 
   for (const val of vals) {
     if ("id" in val) {
@@ -63,6 +68,7 @@ export async function upsert(tableName: string, values: any) {
           if (key === "id") continue
           row.setAttribute(key, val[key])
         }
+        if (returning) returnVals.push(rowToKv(row))
       } else {
         // insert
         const newRow = dom.window.document.createElement("tr")
@@ -77,6 +83,7 @@ export async function upsert(tableName: string, values: any) {
           newRow.setAttribute(key, val[key])
         }
         tBody.appendChild(newRow)
+        if (returning) returnVals.push(rowToKv(newRow))
       }
     } else {
       // insert
@@ -89,10 +96,13 @@ export async function upsert(tableName: string, values: any) {
         newRow.setAttribute(key, val[key])
       }
       tBody.appendChild(newRow)
+      if (returning) returnVals.push(rowToKv(newRow))
     }
 
     if (maxChanged) table.setAttribute("max", max.toString())
 
     writeTable(tableName, dom.window.document.body.innerHTML)
+
+    if (returning) return returnVals
   }
 }

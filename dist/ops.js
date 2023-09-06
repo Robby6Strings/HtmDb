@@ -40,96 +40,127 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.upsert = exports.select = void 0;
-var fs_1 = __importDefault(require("fs"));
-var node_url_1 = require("node:url");
-var path_1 = __importDefault(require("path"));
 var jsdom_1 = __importDefault(require("jsdom"));
+var io_1 = require("./io");
 var JSDOM = jsdom_1.default.JSDOM;
+function rowToKv(row) {
+    return Array.from(row.attributes).reduce(function (acc, _a) {
+        var name = _a.name, value = _a.value;
+        acc[name] = value;
+        return acc;
+    }, {});
+}
 function select(tableName, predicates) {
     if (predicates === void 0) { predicates = {}; }
     return __awaiter(this, void 0, void 0, function () {
-        var table, dom, where, limit, whereSelector, limitSelector, query;
+        var tableStr, dom, table, where, limit, whereSelector, limitSelector, query;
         return __generator(this, function (_a) {
-            table = readTable(tableName);
-            dom = new JSDOM(table);
-            where = predicates.where, limit = predicates.limit;
-            whereSelector = where ? where.map(function (w) { return "[".concat(w, "]"); }).join("") : "";
-            limitSelector = limit ? ":nth-child(-n+".concat(limit, ")") : "";
-            query = "table tr".concat(whereSelector).concat(limitSelector);
-            return [2 /*return*/, Array.from(dom.window.document.querySelectorAll(query)).map(function (row) {
-                    return Array.from(row.attributes).reduce(function (acc, _a) {
-                        var name = _a.name, value = _a.value;
-                        acc[name] = value;
-                        return acc;
-                    }, {});
-                })];
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, (0, io_1.readTable)(tableName)];
+                case 1:
+                    tableStr = _a.sent();
+                    dom = new JSDOM(tableStr);
+                    table = dom.window.document.querySelector("table");
+                    where = predicates.where, limit = predicates.limit;
+                    whereSelector = where
+                        ? where
+                            .map(function (w) {
+                            var key = w.key, value = w.value, operator = w.operator;
+                            if (operator === "=")
+                                return "[".concat(key, "=\"").concat(value, "\"]");
+                            if (operator === "!=")
+                                return ":not([".concat(key, "=\"").concat(value, "\"])");
+                            if (operator === ">")
+                                return "[".concat(key, "^=\"").concat(value, "\"]");
+                            if (operator === "<")
+                                return "[".concat(key, "$=\"").concat(value, "\"]");
+                            if (operator === ">=")
+                                return "[".concat(key, "^=\"").concat(value, "\"],[").concat(key, "=\"").concat(value, "\"]");
+                            if (operator === "<=")
+                                return "[".concat(key, "$=\"").concat(value, "\"],[").concat(key, "=\"").concat(value, "\"]");
+                            if (operator === "contains")
+                                return "[".concat(key, "*=\"").concat(value, "\"]");
+                            if (operator === "startsWith")
+                                return "[".concat(key, "^=\"").concat(value, "\"]");
+                            if (operator === "endsWith")
+                                return "[".concat(key, "$=\"").concat(value, "\"]");
+                        })
+                            .join("")
+                        : "";
+                    limitSelector = limit ? ":nth-child(-n+".concat(limit, ")") : "";
+                    query = "table tr".concat(whereSelector).concat(limitSelector);
+                    return [2 /*return*/, Array.from(table.querySelectorAll(query)).map(function (row) { return rowToKv(row); })];
+            }
         });
     });
 }
 exports.select = select;
-function readTable(tableName) {
-    return fs_1.default.readFileSync((0, node_url_1.pathToFileURL)(path_1.default.join("tables", tableName + ".html")), "utf8");
-}
-function writeTable(tableName, table) {
-    fs_1.default.writeFileSync((0, node_url_1.pathToFileURL)(path_1.default.join("tables", tableName + ".html")), table);
-}
-function upsert(tableName, values) {
+function upsert(tableName, values, returning) {
+    if (returning === void 0) { returning = true; }
     return __awaiter(this, void 0, void 0, function () {
-        var tableStr, dom, table, tBody, max, maxChanged, vals, _i, vals_1, val, row, key, newRow, key, newRow, key;
+        var tableStr, dom, table, tBody, max, maxChanged, vals, returnVals, _i, vals_1, val, row, key, newRow, key, newRow, key;
         return __generator(this, function (_a) {
-            tableStr = readTable(tableName);
-            dom = new JSDOM(tableStr);
-            table = dom.window.document.querySelector("table");
-            tBody = table.tBodies[0];
-            max = parseInt(table.getAttribute("max") || "0");
-            maxChanged = false;
-            vals = Array.isArray(values) ? values : [values];
-            try {
-                for (_i = 0, vals_1 = vals; _i < vals_1.length; _i++) {
-                    val = vals_1[_i];
-                    if ("id" in val) {
-                        row = table.querySelector("tr[id=\"".concat(val.id, "\"]"));
-                        if (row) {
-                            // update
-                            for (key in val) {
-                                if (key === "id")
-                                    continue;
-                                row.setAttribute(key, val[key]);
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, (0, io_1.readTable)(tableName)];
+                case 1:
+                    tableStr = _a.sent();
+                    dom = new JSDOM(tableStr);
+                    table = dom.window.document.querySelector("table");
+                    tBody = table.tBodies[0];
+                    max = parseInt(table.getAttribute("max") || "0");
+                    maxChanged = false;
+                    vals = Array.isArray(values) ? values : [values];
+                    returnVals = [];
+                    for (_i = 0, vals_1 = vals; _i < vals_1.length; _i++) {
+                        val = vals_1[_i];
+                        if ("id" in val) {
+                            row = table.querySelector("tr[id=\"".concat(val.id, "\"]"));
+                            if (row) {
+                                // update
+                                for (key in val) {
+                                    if (key === "id")
+                                        continue;
+                                    row.setAttribute(key, val[key]);
+                                }
+                                if (returning)
+                                    returnVals.push(rowToKv(row));
+                            }
+                            else {
+                                newRow = dom.window.document.createElement("tr");
+                                for (key in val) {
+                                    if (key === "id") {
+                                        newRow.setAttribute("id", val[key]);
+                                        max = Math.max(max, parseInt(val[key]));
+                                        maxChanged = true;
+                                        continue;
+                                    }
+                                    newRow.setAttribute(key, val[key]);
+                                }
+                                tBody.appendChild(newRow);
+                                if (returning)
+                                    returnVals.push(rowToKv(newRow));
                             }
                         }
                         else {
                             newRow = dom.window.document.createElement("tr");
+                            newRow.setAttribute("id", (max + 1).toString());
+                            max++;
+                            maxChanged = true;
                             for (key in val) {
-                                if (key === "id") {
-                                    newRow.setAttribute("id", val[key]);
-                                    max = Math.max(max, parseInt(val[key]));
-                                    maxChanged = true;
-                                    continue;
-                                }
                                 newRow.setAttribute(key, val[key]);
                             }
                             tBody.appendChild(newRow);
+                            if (returning)
+                                returnVals.push(rowToKv(newRow));
                         }
+                        if (maxChanged)
+                            table.setAttribute("max", max.toString());
+                        (0, io_1.writeTable)(tableName, dom.window.document.body.innerHTML);
+                        if (returning)
+                            return [2 /*return*/, returnVals];
                     }
-                    else {
-                        newRow = dom.window.document.createElement("tr");
-                        newRow.setAttribute("id", (max + 1).toString());
-                        max++;
-                        maxChanged = true;
-                        for (key in val) {
-                            newRow.setAttribute(key, val[key]);
-                        }
-                        tBody.appendChild(newRow);
-                    }
-                    if (maxChanged)
-                        table.setAttribute("max", max.toString());
-                    writeTable(tableName, dom.window.document.body.innerHTML);
-                }
+                    return [2 /*return*/];
             }
-            catch (error) {
-                console.error(error);
-            }
-            return [2 /*return*/];
         });
     });
 }
