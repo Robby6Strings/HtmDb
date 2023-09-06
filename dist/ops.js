@@ -53,7 +53,7 @@ function rowToKv(row) {
 function select(tableName, predicates) {
     if (predicates === void 0) { predicates = {}; }
     return __awaiter(this, void 0, void 0, function () {
-        var tableStr, dom, table, where, limit, limitSelector, equalityOps, whereSelector, rangeOps, rows, _loop_1, _i, rangeOps_1, op, query;
+        var tableStr, dom, table, where, limit, limitSelector, equalityOps, whereSelector, rangeOps, rows, _loop_1, _i, rangeOps_1, op, res, query;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, (0, io_1.readTable)(tableName)];
@@ -98,7 +98,10 @@ function select(tableName, predicates) {
                             op = rangeOps_1[_i];
                             _loop_1(op);
                         }
-                        return [2 /*return*/, rows.map(function (row) { return rowToKv(row); })];
+                        res = rows.map(function (row) { return rowToKv(row); });
+                        if (limit)
+                            return [2 /*return*/, res.slice(0, limit)];
+                        return [2 /*return*/, res];
                     }
                     query = "table tr".concat(whereSelector).concat(limitSelector);
                     return [2 /*return*/, Array.from(table.querySelectorAll(query)).map(function (row) { return rowToKv(row); })];

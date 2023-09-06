@@ -55,7 +55,9 @@ export async function select(
       })
     }
 
-    return rows.map((row) => rowToKv(row))
+    const res = rows.map((row) => rowToKv(row))
+    if (limit) return res.slice(0, limit)
+    return res
   }
 
   const query = `table tr${whereSelector}${limitSelector}`

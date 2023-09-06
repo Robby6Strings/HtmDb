@@ -46,7 +46,7 @@ function main() {
                 case 0:
                     queryStart = performance.now();
                     return [4 /*yield*/, (0, ops_1.select)("person", {
-                            where: [(0, predicate_1.lte)("id", "5"), (0, predicate_1.gt)("id", "2")],
+                            where: [(0, predicate_1.lte)("id", "5"), (0, predicate_1.gte)("id", "2")],
                         })];
                 case 1:
                     res = _a.sent();
