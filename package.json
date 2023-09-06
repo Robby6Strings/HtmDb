@@ -4,15 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsc && node dist/index.js"
+    "dev": "tsc && node dist/index.js -w"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "jsdom": "^22.1.0",
     "puppeteer": "^21.1.1"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.2",
     "@types/node": "^20.5.7"
   }
 }

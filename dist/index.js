@@ -35,18 +35,29 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var puppeteer = require("puppeteer");
-var filePath = "file://" + __dirname + "/../tables/";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var fs_1 = __importDefault(require("fs"));
+var node_url_1 = require("node:url");
+var path_1 = __importDefault(require("path"));
+var jsdom_1 = __importDefault(require("jsdom"));
+var JSDOM = jsdom_1.default.JSDOM;
 var eq = function (a, b) { return "".concat(a, "=\"").concat(b, "\""); };
 function main() {
     return __awaiter(this, void 0, void 0, function () {
-        var res;
+        var queryStart, res;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, queryTable("person", { where: [eq("name", "Bob")] })];
+                case 0:
+                    queryStart = performance.now();
+                    return [4 /*yield*/, queryTable("person", {
+                            where: [eq("id", "1")],
+                        })];
                 case 1:
                     res = _a.sent();
-                    console.log(res);
+                    console.log(res, performance.now() - queryStart + "ms elapsed");
                     return [2 /*return*/];
             }
         });
@@ -55,43 +66,21 @@ function main() {
 function queryTable(tableName, predicates) {
     if (predicates === void 0) { predicates = {}; }
     return __awaiter(this, void 0, void 0, function () {
-        var browser, page, where, limit, whereSelector, limitSelector, query, res;
+        var file, dom, where, limit, whereSelector, limitSelector, query;
         return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, puppeteer.launch({
-                        headless: "new",
-                    })];
-                case 1:
-                    browser = _a.sent();
-                    return [4 /*yield*/, browser.newPage()];
-                case 2:
-                    page = _a.sent();
-                    return [4 /*yield*/, page.goto(filePath + tableName + ".html")];
-                case 3:
-                    _a.sent();
-                    return [4 /*yield*/, page.waitForSelector("table")];
-                case 4:
-                    _a.sent();
-                    where = predicates.where, limit = predicates.limit;
-                    whereSelector = where ? where.map(function (w) { return "[".concat(w, "]"); }).join("") : "";
-                    limitSelector = limit ? ":nth-child(-n+".concat(limit, ")") : "";
-                    query = "table tr".concat(whereSelector).concat(limitSelector);
-                    return [4 /*yield*/, page.evaluate(function (query) {
-                            return Array.from(document.querySelectorAll(query)).map(function (row) {
-                                return Array.from(row.attributes).reduce(function (acc, _a) {
-                                    var name = _a.name, value = _a.value;
-                                    acc[name] = value;
-                                    return acc;
-                                }, {});
-                            });
-                        }, query)];
-                case 5:
-                    res = _a.sent();
-                    return [4 /*yield*/, browser.close()];
-                case 6:
-                    _a.sent();
-                    return [2 /*return*/, res];
-            }
+            file = fs_1.default.readFileSync((0, node_url_1.pathToFileURL)(path_1.default.join("tables", tableName + ".html")), "utf8");
+            dom = new JSDOM(file);
+            where = predicates.where, limit = predicates.limit;
+            whereSelector = where ? where.map(function (w) { return "[".concat(w, "]"); }).join("") : "";
+            limitSelector = limit ? ":nth-child(-n+".concat(limit, ")") : "";
+            query = "table tr".concat(whereSelector).concat(limitSelector);
+            return [2 /*return*/, Array.from(dom.window.document.querySelectorAll(query)).map(function (row) {
+                    return Array.from(row.attributes).reduce(function (acc, _a) {
+                        var name = _a.name, value = _a.value;
+                        acc[name] = value;
+                        return acc;
+                    }, {});
+                })];
         });
     });
 }

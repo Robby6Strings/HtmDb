@@ -1,12 +1,17 @@
-const puppeteer = require("puppeteer")
-
-const filePath = "file://" + __dirname + "/../tables/"
+import fs from "fs"
+import { pathToFileURL } from "node:url"
+import path from "path"
+import jsdom from "jsdom"
+const { JSDOM } = jsdom
 
 const eq = (a: string, b: string) => `${a}="${b}"`
 
 async function main() {
-  const res = await queryTable("person", { where: [eq("name", "Bob")] })
-  console.log(res)
+  const queryStart = performance.now()
+  const res = await queryTable("person", {
+    where: [eq("id", "1")],
+  })
+  console.log(res, performance.now() - queryStart + "ms elapsed")
 }
 
 type PredicateOptions = {
@@ -18,29 +23,24 @@ async function queryTable(
   tableName: string,
   predicates: PredicateOptions = {}
 ) {
-  const browser = await puppeteer.launch({
-    headless: "new",
-  })
-  const page = await browser.newPage()
-  await page.goto(filePath + tableName + ".html")
-  await page.waitForSelector("table")
+  const file = fs.readFileSync(
+    pathToFileURL(path.join("tables", tableName + ".html")),
+    "utf8"
+  )
+
+  const dom = new JSDOM(file)
 
   const { where, limit } = predicates
   const whereSelector = where ? where.map((w) => `[${w}]`).join("") : ""
   const limitSelector = limit ? `:nth-child(-n+${limit})` : ""
   const query = `table tr${whereSelector}${limitSelector}`
 
-  const res = await page.evaluate((query: string) => {
-    return Array.from(document.querySelectorAll(query)).map((row) => {
-      return Array.from(row.attributes).reduce((acc, { name, value }) => {
-        acc[name] = value
-        return acc
-      }, {} as any)
-    })
-  }, query)
-
-  await browser.close()
-  return res
+  return Array.from(dom.window.document.querySelectorAll(query)).map((row) => {
+    return Array.from(row.attributes).reduce((acc, { name, value }) => {
+      acc[name] = value
+      return acc
+    }, {} as any)
+  })
 }
 
 main()
