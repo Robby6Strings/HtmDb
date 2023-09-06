@@ -54,49 +54,45 @@ export async function upsert(tableName: string, values: any) {
 
   const vals = Array.isArray(values) ? values : [values]
 
-  try {
-    for (const val of vals) {
-      if ("id" in val) {
-        const row = table.querySelector(`tr[id="${val.id}"]`)
-        if (row) {
-          // update
-          for (const key in val) {
-            if (key === "id") continue
-            row.setAttribute(key, val[key])
-          }
-        } else {
-          // insert
-          const newRow = dom.window.document.createElement("tr")
-
-          for (const key in val) {
-            if (key === "id") {
-              newRow.setAttribute("id", val[key])
-              max = Math.max(max, parseInt(val[key]))
-              maxChanged = true
-              continue
-            }
-            newRow.setAttribute(key, val[key])
-          }
-          tBody.appendChild(newRow)
+  for (const val of vals) {
+    if ("id" in val) {
+      const row = table.querySelector(`tr[id="${val.id}"]`)
+      if (row) {
+        // update
+        for (const key in val) {
+          if (key === "id") continue
+          row.setAttribute(key, val[key])
         }
       } else {
         // insert
         const newRow = dom.window.document.createElement("tr")
-        newRow.setAttribute("id", (max + 1).toString())
-        max++
-        maxChanged = true
 
         for (const key in val) {
+          if (key === "id") {
+            newRow.setAttribute("id", val[key])
+            max = Math.max(max, parseInt(val[key]))
+            maxChanged = true
+            continue
+          }
           newRow.setAttribute(key, val[key])
         }
         tBody.appendChild(newRow)
       }
+    } else {
+      // insert
+      const newRow = dom.window.document.createElement("tr")
+      newRow.setAttribute("id", (max + 1).toString())
+      max++
+      maxChanged = true
 
-      if (maxChanged) table.setAttribute("max", max.toString())
-
-      writeTable(tableName, dom.window.document.body.innerHTML)
+      for (const key in val) {
+        newRow.setAttribute(key, val[key])
+      }
+      tBody.appendChild(newRow)
     }
-  } catch (error) {
-    console.error(error)
+
+    if (maxChanged) table.setAttribute("max", max.toString())
+
+    writeTable(tableName, dom.window.document.body.innerHTML)
   }
 }
