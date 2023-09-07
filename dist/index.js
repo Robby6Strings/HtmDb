@@ -36,24 +36,52 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var ops_1 = require("./ops");
-var predicate_1 = require("./predicate");
-function main() {
+var lib_1 = require("./lib");
+var predicate_1 = require("./lib/predicate");
+var schema_1 = require("./schema");
+var db = new lib_1.HtmlDb(schema_1.dbSchema);
+function selectExample() {
     return __awaiter(this, void 0, void 0, function () {
         var queryStart, res;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     queryStart = performance.now();
-                    return [4 /*yield*/, (0, ops_1.select)("person", {
-                            where: [(0, predicate_1.lte)("id", "5"), (0, predicate_1.gte)("id", "2")],
+                    return [4 /*yield*/, db.select(schema_1.person, {
+                            where: [(0, predicate_1.eq)(schema_1.person.id, "1")],
+                            limit: 1,
                         })];
                 case 1:
                     res = _a.sent();
-                    console.log(res, performance.now() - queryStart + "ms elapsed");
+                    console.log(res, "selectExample complete", performance.now() - queryStart + "ms elapsed");
                     return [2 /*return*/];
             }
         });
     });
 }
-main();
+function upsertExample() {
+    return __awaiter(this, void 0, void 0, function () {
+        var queryStart, res;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    queryStart = performance.now();
+                    return [4 /*yield*/, db.upsert(schema_1.person, [
+                            {
+                                id: "1",
+                                name: "Bob",
+                            },
+                        ], true)];
+                case 1:
+                    res = _a.sent();
+                    console.log(res, "upsertExample complete", performance.now() - queryStart + "ms elapsed");
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+;
+(function () {
+    selectExample();
+    upsertExample();
+})();
