@@ -48,12 +48,12 @@ function selectExample() {
                 case 0:
                     queryStart = performance.now();
                     return [4 /*yield*/, db.select(schema_1.person, {
-                            where: [(0, predicate_1.eq)(schema_1.person.id, "1")],
-                            limit: 1,
+                            where: [(0, predicate_1.gte)(schema_1.person.id, "15")],
                         })];
                 case 1:
                     res = _a.sent();
-                    console.log(res, "selectExample complete", performance.now() - queryStart + "ms elapsed");
+                    console.log(res);
+                    console.log("selectExample complete - ".concat(performance.now() - queryStart + "ms elapsed"));
                     return [2 /*return*/];
             }
         });
@@ -74,7 +74,8 @@ function upsertExample() {
                         ], true)];
                 case 1:
                     res = _a.sent();
-                    console.log(res, "upsertExample complete", performance.now() - queryStart + "ms elapsed");
+                    console.log(res);
+                    console.log("upsertExample complete - ".concat(performance.now() - queryStart + "ms elapsed"));
                     return [2 /*return*/];
             }
         });

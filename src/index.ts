@@ -7,13 +7,11 @@ const db = new HtmlDb(dbSchema)
 async function selectExample() {
   const queryStart = performance.now()
   const res = await db.select(person, {
-    where: [eq(person.id, "1")],
-    limit: 1,
+    where: [gte(person.id, "15")],
   })
+  console.log(res)
   console.log(
-    res,
-    "selectExample complete",
-    performance.now() - queryStart + "ms elapsed"
+    `selectExample complete - ${performance.now() - queryStart + "ms elapsed"}`
   )
 }
 
@@ -29,10 +27,9 @@ async function upsertExample() {
     ],
     true
   )
+  console.log(res)
   console.log(
-    res,
-    "upsertExample complete",
-    performance.now() - queryStart + "ms elapsed"
+    `upsertExample complete - ${performance.now() - queryStart + "ms elapsed"}`
   )
 }
 
