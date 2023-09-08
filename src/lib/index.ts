@@ -45,56 +45,61 @@ export class HtmlDb {
     const table = dom.window.document.querySelector("table")!
 
     const filteredRows = Array.from(table.rows).filter((row) => {
-      return predicates.where?.every((predicate) => {
-        const a = this.resolveValue(predicate.a, row)
-        const b = this.resolveValue(predicate.b, row)
-        const conversionType = this.getConversionType(predicate.a, predicate.b)
+      return (
+        predicates.where?.every((predicate) => {
+          const a = this.resolveValue(predicate.a, row)
+          const b = this.resolveValue(predicate.b, row)
+          const conversionType = this.getConversionType(
+            predicate.a,
+            predicate.b
+          )
 
-        const [a_norm, b_norm] = [
-          this.typeCast(a, conversionType),
-          this.typeCast(b, conversionType),
-        ]
+          const [a_norm, b_norm] = [
+            this.typeCast(a, conversionType),
+            this.typeCast(b, conversionType),
+          ]
 
-        if (a_norm === null || b_norm === null) {
-          if (predicate.operator === "=") {
-            return a_norm === b_norm
-          } else if (predicate.operator === "!=") {
-            return a_norm !== b_norm
-          } else {
-            return false
+          if (a_norm === null || b_norm === null) {
+            if (predicate.operator === "=") {
+              return a_norm === b_norm
+            } else if (predicate.operator === "!=") {
+              return a_norm !== b_norm
+            } else {
+              return false
+            }
           }
-        }
-        if (Array.isArray(a_norm))
-          throw new Error("Cannot provide array as lhs")
+          if (Array.isArray(a_norm))
+            throw new Error("Cannot provide array as lhs")
 
-        if (predicate.operator === "in") {
-          if (!Array.isArray(b_norm)) {
-            throw new Error("Must provide an array with 'in' operator")
-          } else if (Array.isArray(a_norm)) {
-            throw new Error("'in' operator rhs must be array of primitives")
+          if (predicate.operator === "in") {
+            if (!Array.isArray(b_norm)) {
+              throw new Error("Must provide an array with 'in' operator")
+            } else if (Array.isArray(a_norm)) {
+              throw new Error("'in' operator rhs must be array of primitives")
+            }
+            return b_norm.includes(a_norm)
           }
-          return b_norm.includes(a_norm)
-        }
 
-        if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
-          throw new Error("Must provide array with 'in' operator")
-        }
+          if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
+            throw new Error("Must provide array with 'in' operator")
+          }
 
-        switch (predicate.operator) {
-          case "=":
-            return a_norm === b_norm
-          case "!=":
-            return a_norm !== b_norm
-          case ">":
-            return a_norm > b_norm
-          case "<":
-            return a_norm < b_norm
-          case ">=":
-            return a_norm >= b_norm
-          case "<=":
-            return a_norm <= b_norm
-        }
-      })
+          switch (predicate.operator) {
+            case "=":
+              return a_norm === b_norm
+            case "!=":
+              return a_norm !== b_norm
+            case ">":
+              return a_norm > b_norm
+            case "<":
+              return a_norm < b_norm
+            case ">=":
+              return a_norm >= b_norm
+            case "<=":
+              return a_norm <= b_norm
+          }
+        }) || !predicates.where
+      )
     })
 
     const res: Record<string, string>[] = filteredRows

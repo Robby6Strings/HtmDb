@@ -77,7 +77,7 @@ var HtmlDb = /** @class */ (function () {
                         table = dom.window.document.querySelector("table");
                         filteredRows = Array.from(table.rows).filter(function (row) {
                             var _a;
-                            return (_a = predicates.where) === null || _a === void 0 ? void 0 : _a.every(function (predicate) {
+                            return (((_a = predicates.where) === null || _a === void 0 ? void 0 : _a.every(function (predicate) {
                                 var a = _this.resolveValue(predicate.a, row);
                                 var b = _this.resolveValue(predicate.b, row);
                                 var conversionType = _this.getConversionType(predicate.a, predicate.b);
@@ -124,7 +124,7 @@ var HtmlDb = /** @class */ (function () {
                                     case "<=":
                                         return a_norm <= b_norm;
                                 }
-                            });
+                            })) || !predicates.where);
                         });
                         res = filteredRows
                             .slice(0, predicates.limit || Infinity)

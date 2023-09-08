@@ -48,7 +48,6 @@ function selectExample() {
                 case 0:
                     queryStart = performance.now();
                     return [4 /*yield*/, db.select(schema_1.person, {
-                            where: [(0, predicate_1.inArr)(schema_1.person.id, [1, 2, 3])],
                             with: [[schema_1.car, [(0, predicate_1.eq)(schema_1.car.ownerId, schema_1.person.id)]]],
                         })];
                 case 1:

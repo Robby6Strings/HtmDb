@@ -8,7 +8,6 @@ const db = new HtmlDb(dbSchema)
 async function selectExample() {
   const queryStart = performance.now()
   const res = await db.select(person, {
-    where: [inArr(person.id, [1, 2, 3])],
     with: [[car, [eq(car.ownerId, person.id)]]],
   })
   console.log(res)
