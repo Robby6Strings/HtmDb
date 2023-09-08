@@ -1,70 +1,60 @@
-import { TableConfig } from "./schema"
+import { Table, TableColumn, TableConfig } from "./schema"
 
-export type PredicateOptions<T extends TableConfig> = {
-  where?: Predicate<T>[]
+export type PredicateOptions = {
+  where?: Predicate[]
   limit?: number
-  with?: Join[]
+  //with?: Join<any>[]
 }
-export type Join = [name: string, callback: (row: any) => boolean]
 
-export type Predicate<T extends TableConfig> = {
-  key: keyof T["columns"]
-  value: string
+export type Join<TC extends TableConfig> = [Table<TC>, Predicate]
+
+export type Predicate = {
+  a: PredicateValue
+  b: PredicateValue
   operator: Operator
 }
 
 export type Operator = "=" | "!=" | ">" | "<" | ">=" | "<="
+export type PredicateValue =
+  | string
+  | number
+  | boolean
+  | Date
+  | null
+  | TableColumn<any>
 
-export const eq = <T extends TableConfig>(
-  key: keyof T["columns"],
-  val: string
-): Predicate<T> => {
-  return createPredicate<T>(key, val, "=")
+export const eq = (a: PredicateValue, b: PredicateValue) => {
+  return createPredicate(a, b, "=")
 }
 
-export const notEq = <T extends TableConfig>(
-  key: keyof T["columns"],
-  val: string
-): Predicate<T> => {
-  return createPredicate<T>(key, val, "!=")
+export const neq = (a: PredicateValue, b: PredicateValue) => {
+  return createPredicate(a, b, "!=")
 }
 
-export const gt = <T extends TableConfig>(
-  key: keyof T["columns"],
-  val: string
-): Predicate<T> => {
-  return createPredicate<T>(key, val, ">")
+export const gt = (a: PredicateValue, b: PredicateValue) => {
+  return createPredicate(a, b, ">")
 }
 
-export const lt = <T extends TableConfig>(
-  key: keyof T["columns"],
-  val: string
-): Predicate<T> => {
-  return createPredicate<T>(key, val, "<")
+export const lt = (a: PredicateValue, b: PredicateValue) => {
+  return createPredicate(a, b, "<")
 }
 
-export const gte = <T extends TableConfig>(
-  key: keyof T["columns"],
-  val: string
-): Predicate<T> => {
-  return createPredicate<T>(key, val, ">=")
+export const gte = (a: PredicateValue, b: PredicateValue) => {
+  return createPredicate(a, b, ">=")
 }
 
-export const lte = <T extends TableConfig>(
-  key: keyof T["columns"],
-  val: string
-): Predicate<T> => {
-  return createPredicate<T>(key, val, "<=")
+export const lte = (a: PredicateValue, b: PredicateValue) => {
+  return createPredicate(a, b, "<=")
 }
 
-function createPredicate<T extends TableConfig>(
-  key: keyof T["columns"],
-  value: string,
+function createPredicate(
+  a: PredicateValue,
+  b: PredicateValue,
   operator: Operator
-) {
+): Predicate {
   return {
-    key,
-    value,
+    a,
+    b,
     operator,
   }
 }

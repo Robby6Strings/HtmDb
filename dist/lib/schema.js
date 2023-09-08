@@ -18,7 +18,11 @@ function createTable(tableConfig) {
     return Object.entries(tableConfig.columns).reduce(function (acc, _a) {
         var _b;
         var key = _a[0];
-        return __assign(__assign({}, acc), (_b = {}, _b[key] = key, _b));
+        return __assign(__assign({}, acc), (_b = {}, _b[key] = {
+            name: key,
+            table: tableConfig.name,
+            type: tableConfig.columns[key].type,
+        }, _b));
     }, (_a = {}, _a[_1.symbol_internal] = tableConfig, _a));
 }
 exports.createTable = createTable;

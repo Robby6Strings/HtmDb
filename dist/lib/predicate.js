@@ -1,34 +1,34 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.lte = exports.gte = exports.lt = exports.gt = exports.notEq = exports.eq = void 0;
-var eq = function (key, val) {
-    return createPredicate(key, val, "=");
+exports.lte = exports.gte = exports.lt = exports.gt = exports.neq = exports.eq = void 0;
+var eq = function (a, b) {
+    return createPredicate(a, b, "=");
 };
 exports.eq = eq;
-var notEq = function (key, val) {
-    return createPredicate(key, val, "!=");
+var neq = function (a, b) {
+    return createPredicate(a, b, "!=");
 };
-exports.notEq = notEq;
-var gt = function (key, val) {
-    return createPredicate(key, val, ">");
+exports.neq = neq;
+var gt = function (a, b) {
+    return createPredicate(a, b, ">");
 };
 exports.gt = gt;
-var lt = function (key, val) {
-    return createPredicate(key, val, "<");
+var lt = function (a, b) {
+    return createPredicate(a, b, "<");
 };
 exports.lt = lt;
-var gte = function (key, val) {
-    return createPredicate(key, val, ">=");
+var gte = function (a, b) {
+    return createPredicate(a, b, ">=");
 };
 exports.gte = gte;
-var lte = function (key, val) {
-    return createPredicate(key, val, "<=");
+var lte = function (a, b) {
+    return createPredicate(a, b, "<=");
 };
 exports.lte = lte;
-function createPredicate(key, value, operator) {
+function createPredicate(a, b, operator) {
     return {
-        key: key,
-        value: value,
+        a: a,
+        b: b,
         operator: operator,
     };
 }

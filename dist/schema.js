@@ -4,7 +4,6 @@ exports.dbSchema = exports.car = exports.person = void 0;
 var schema_1 = require("./lib/schema");
 exports.person = (0, schema_1.createTable)({
     name: "person",
-    key: "id",
     columns: {
         id: {
             type: "number",
@@ -19,7 +18,6 @@ exports.person = (0, schema_1.createTable)({
 });
 exports.car = (0, schema_1.createTable)({
     name: "car",
-    key: "id",
     columns: {
         id: {
             type: "number",

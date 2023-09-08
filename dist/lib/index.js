@@ -39,13 +39,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HtmlDb = exports.symbol_internal = void 0;
+exports.HtmlDb = exports.join = exports.symbol_internal = void 0;
 var path_1 = __importDefault(require("path"));
 var fs_1 = __importDefault(require("fs"));
 var url_1 = require("url");
 var jsdom_1 = __importDefault(require("jsdom"));
 var JSDOM = jsdom_1.default.JSDOM;
 exports.symbol_internal = Symbol("_");
+function join(table, predicate) {
+    return [table, predicate];
+}
+exports.join = join;
+function isTableColumn(value) {
+    return (typeof value === "object" &&
+        value !== null &&
+        "name" in value &&
+        "table" in value);
+}
 var HtmlDb = /** @class */ (function () {
     function HtmlDb(schema) {
         this.schema = schema;
@@ -53,7 +63,7 @@ var HtmlDb = /** @class */ (function () {
     HtmlDb.prototype.select = function (tableRef, predicates) {
         if (predicates === void 0) { predicates = {}; }
         return __awaiter(this, void 0, void 0, function () {
-            var tableStr, dom, table, where, limit, limitSelector, equalityOps, whereSelector, rangeOps, rows, _loop_1, _i, rangeOps_1, op, res_1, res;
+            var tableStr, dom, table, filteredRows;
             var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
@@ -62,50 +72,46 @@ var HtmlDb = /** @class */ (function () {
                         tableStr = _a.sent();
                         dom = new JSDOM(tableStr);
                         table = dom.window.document.querySelector("table");
-                        where = predicates.where, limit = predicates.limit;
-                        limitSelector = limit ? ":nth-child(-n+".concat(limit, ")") : "";
-                        equalityOps = (where === null || where === void 0 ? void 0 : where.filter(function (w) { return w.operator === "=" || w.operator === "!="; })) || [];
-                        whereSelector = equalityOps.length > 0
-                            ? equalityOps
-                                .map(function (w) {
-                                var key = w.key, value = w.value, operator = w.operator;
-                                if (operator === "=")
-                                    return "[".concat(key.toString(), "=\"").concat(value, "\"]");
-                                if (operator === "!=")
-                                    return ":not([".concat(key.toString(), "=\"").concat(value, "\"])");
-                            })
-                                .join("")
-                            : "";
-                        rangeOps = (where === null || where === void 0 ? void 0 : where.filter(function (w) { return w.operator !== "=" && w.operator !== "!="; })) || [];
-                        if (rangeOps.length > 0) {
-                            rows = Array.from(table.querySelectorAll("tr"));
-                            _loop_1 = function (op) {
-                                var key = op.key, value = op.value, operator = op.operator;
-                                rows = rows.filter(function (row) {
-                                    var rowVal = key === "id" ? row.id : row.getAttribute(key.toString());
-                                    if (!rowVal)
+                        filteredRows = Array.from(table.rows).filter(function (row) {
+                            var _a;
+                            return (_a = predicates.where) === null || _a === void 0 ? void 0 : _a.every(function (predicate) {
+                                var a = _this.resolveValue(predicate.a, row);
+                                var b = _this.resolveValue(predicate.b, row);
+                                var conversionType = _this.getConversionType(predicate.a, predicate.b);
+                                if (a === null || b === null) {
+                                    if (predicate.operator === "=") {
+                                        return a === b;
+                                    }
+                                    else if (predicate.operator === "!=") {
+                                        return a !== b;
+                                    }
+                                    else {
                                         return false;
-                                    if (operator === ">")
-                                        return parseInt(rowVal) > parseInt(value);
-                                    if (operator === "<")
-                                        return parseInt(rowVal) < parseInt(value);
-                                    if (operator === ">=")
-                                        return parseInt(rowVal) >= parseInt(value);
-                                    if (operator === "<=")
-                                        return parseInt(rowVal) <= parseInt(value);
-                                });
-                            };
-                            for (_i = 0, rangeOps_1 = rangeOps; _i < rangeOps_1.length; _i++) {
-                                op = rangeOps_1[_i];
-                                _loop_1(op);
-                            }
-                            res_1 = rows.map(function (row) { return _this.rowToKv(row); });
-                            if (limit)
-                                return [2 /*return*/, res_1.slice(0, limit)];
-                            return [2 /*return*/, res_1];
-                        }
-                        res = Array.from(table.querySelectorAll("tr".concat(whereSelector).concat(limitSelector))).map(function (row) { return _this.rowToKv(row); });
-                        return [2 /*return*/, res];
+                                    }
+                                }
+                                var _a = [
+                                    _this.typeCast(a.toString(), conversionType),
+                                    _this.typeCast(b.toString(), conversionType),
+                                ], a_norm = _a[0], b_norm = _a[1];
+                                switch (predicate.operator) {
+                                    case "=":
+                                        return a_norm === b_norm;
+                                    case "!=":
+                                        return a_norm !== b_norm;
+                                    case ">":
+                                        return a_norm > b_norm;
+                                    case "<":
+                                        return a_norm < b_norm;
+                                    case ">=":
+                                        return a_norm >= b_norm;
+                                    case "<=":
+                                        return a_norm <= b_norm;
+                                }
+                            });
+                        });
+                        return [2 /*return*/, filteredRows
+                                .slice(0, predicates.limit || Infinity)
+                                .map(function (row) { return _this.rowToKv(row); })];
                 }
             });
         });
@@ -113,44 +119,43 @@ var HtmlDb = /** @class */ (function () {
     HtmlDb.prototype.upsert = function (tableRef, rows, returnRows) {
         if (returnRows === void 0) { returnRows = false; }
         return __awaiter(this, void 0, void 0, function () {
-            var tableStr, document, table, res, _i, rows_1, item, row, _a, _b, _c, key, value, newRow, _d, _e, _f, key, value;
+            var tableStr, dom, table, maxId, res, _i, rows_1, item, existingRow, _a, _b, _c, key, value, newRow, _d, _e, _f, key, value;
             return __generator(this, function (_g) {
                 switch (_g.label) {
                     case 0: return [4 /*yield*/, this.readTable(tableRef[exports.symbol_internal].name)];
                     case 1:
                         tableStr = _g.sent();
-                        document = new JSDOM(tableStr).window.document;
-                        table = document.querySelector("table");
+                        dom = new JSDOM(tableStr);
+                        table = dom.window.document.querySelector("table");
+                        maxId = parseInt(table.getAttribute("max") || "0");
                         res = [];
                         for (_i = 0, rows_1 = rows; _i < rows_1.length; _i++) {
                             item = rows_1[_i];
                             if ("id" in item) {
-                                row = document.getElementById(item.id);
-                                if (row) {
+                                existingRow = dom.window.document.getElementById(item.id);
+                                if (existingRow) {
                                     for (_a = 0, _b = Object.entries(item); _a < _b.length; _a++) {
                                         _c = _b[_a], key = _c[0], value = _c[1];
                                         if (key === "id")
                                             continue;
-                                        row.setAttribute(key, value.toString());
+                                        existingRow.setAttribute(key, value);
                                     }
-                                    if (returnRows)
-                                        res.push(this.rowToKv(row));
+                                    returnRows && res.push(this.rowToKv(existingRow));
                                     continue;
                                 }
                             }
-                            newRow = document.createElement("tr");
+                            newRow = table.insertRow();
+                            newRow.id = "id" in item ? item.id : (++maxId).toString();
+                            maxId = Math.max(maxId, parseInt(newRow.id));
                             for (_d = 0, _e = Object.entries(item); _d < _e.length; _d++) {
                                 _f = _e[_d], key = _f[0], value = _f[1];
-                                if (key === "id") {
-                                    newRow.id = value.toString();
+                                if (key === "id")
                                     continue;
-                                }
-                                newRow.setAttribute(key, value.toString());
+                                newRow.setAttribute(key, value);
                             }
-                            table.appendChild(newRow);
-                            if (returnRows)
-                                res.push(this.rowToKv(newRow));
+                            returnRows && res.push(this.rowToKv(newRow));
                         }
+                        table.setAttribute("max", maxId.toString());
                         return [4 /*yield*/, this.writeTable(tableRef[exports.symbol_internal].name, table)];
                     case 2:
                         _g.sent();
@@ -158,6 +163,35 @@ var HtmlDb = /** @class */ (function () {
                 }
             });
         });
+    };
+    HtmlDb.prototype.getConversionType = function (predA, predB) {
+        if (isTableColumn(predA)) {
+            return predA.type;
+        }
+        else if (isTableColumn(predB)) {
+            return predB.type;
+        }
+        else {
+            return "string";
+        }
+    };
+    HtmlDb.prototype.typeCast = function (value, type) {
+        switch (type) {
+            case "number":
+                return Number(value);
+            case "boolean":
+                return Boolean(value);
+            case "date":
+                return new Date(value);
+            default:
+                return value;
+        }
+    };
+    HtmlDb.prototype.resolveValue = function (value, row) {
+        if (isTableColumn(value)) {
+            return row.getAttribute(value.name);
+        }
+        return value;
     };
     HtmlDb.prototype.rowToKv = function (row) {
         return Array.from(row.attributes).reduce(function (acc, _a) {

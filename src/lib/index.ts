@@ -4,114 +4,156 @@ import { pathToFileURL } from "url"
 import jsdom from "jsdom"
 const { JSDOM } = jsdom
 
-import { PredicateOptions } from "./predicate"
-import { Schema, Table, TableConfig } from "./schema"
+import { Join, Predicate, PredicateOptions, PredicateValue } from "./predicate"
+import { Schema, Table, TableColumn, TableConfig } from "./schema"
 
 export const symbol_internal = Symbol("_")
+
+export function join<TC extends TableConfig>(
+  table: Table<TC>,
+  predicate: Predicate
+): Join<TC> {
+  return [table, predicate]
+}
+
+function isTableColumn(value: PredicateValue): value is TableColumn<any> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "name" in value &&
+    "table" in value
+  )
+}
 
 export class HtmlDb {
   constructor(private readonly schema: Schema) {}
 
-  public async select<U extends TableConfig, T extends Table<U>>(
+  public async select<T extends Table<any>>(
     tableRef: T,
-    predicates: PredicateOptions<U> = {}
+    predicates: PredicateOptions = {}
   ) {
     const tableStr = await this.readTable(tableRef[symbol_internal].name)
     const dom = new JSDOM(tableStr)
     const table = dom.window.document.querySelector("table")!
 
-    const { where, limit } = predicates
+    const filteredRows = Array.from(table.rows).filter((row) => {
+      return predicates.where?.every((predicate) => {
+        const a = this.resolveValue(predicate.a, row)
+        const b = this.resolveValue(predicate.b, row)
 
-    const limitSelector = limit ? `:nth-child(-n+${limit})` : ""
+        const conversionType = this.getConversionType(predicate.a, predicate.b)
 
-    const equalityOps =
-      where?.filter((w) => w.operator === "=" || w.operator === "!=") || []
+        if (a === null || b === null) {
+          if (predicate.operator === "=") {
+            return a === b
+          } else if (predicate.operator === "!=") {
+            return a !== b
+          } else {
+            return false
+          }
+        }
 
-    const whereSelector =
-      equalityOps.length > 0
-        ? equalityOps
-            .map((w) => {
-              const { key, value, operator } = w
-              if (operator === "=") return `[${key.toString()}="${value}"]`
-              if (operator === "!=")
-                return `:not([${key.toString()}="${value}"])`
-            })
-            .join("")
-        : ""
+        const [a_norm, b_norm] = [
+          this.typeCast(a.toString(), conversionType),
+          this.typeCast(b.toString(), conversionType),
+        ]
 
-    const rangeOps =
-      where?.filter((w) => w.operator !== "=" && w.operator !== "!=") || []
+        switch (predicate.operator) {
+          case "=":
+            return a_norm === b_norm
+          case "!=":
+            return a_norm !== b_norm
+          case ">":
+            return a_norm > b_norm
+          case "<":
+            return a_norm < b_norm
+          case ">=":
+            return a_norm >= b_norm
+          case "<=":
+            return a_norm <= b_norm
+        }
+      })
+    })
 
-    if (rangeOps.length > 0) {
-      let rows = Array.from(table.querySelectorAll("tr"))
-
-      for (const op of rangeOps) {
-        const { key, value, operator } = op
-
-        rows = rows.filter((row) => {
-          const rowVal =
-            key === "id" ? row.id : row.getAttribute(key.toString())
-          if (!rowVal) return false
-          if (operator === ">") return parseInt(rowVal) > parseInt(value)
-          if (operator === "<") return parseInt(rowVal) < parseInt(value)
-          if (operator === ">=") return parseInt(rowVal) >= parseInt(value)
-          if (operator === "<=") return parseInt(rowVal) <= parseInt(value)
-        })
-      }
-
-      const res = rows.map((row) => this.rowToKv(row))
-      if (limit) return res.slice(0, limit)
-      return res
-    }
-
-    const res = Array.from(
-      table.querySelectorAll(`tr${whereSelector}${limitSelector}`)
-    ).map((row) => this.rowToKv(row))
-
-    return res
+    return filteredRows
+      .slice(0, predicates.limit || Infinity)
+      .map((row) => this.rowToKv(row))
   }
 
-  public async upsert<U extends TableConfig, T extends Table<U>>(
+  public async upsert<T extends Table<any>>(
     tableRef: T,
-    rows: Partial<Record<keyof T, string>>[],
+    rows: Record<keyof T["columns"], any>[],
     returnRows = false
   ) {
     const tableStr = await this.readTable(tableRef[symbol_internal].name)
-    const document = new JSDOM(tableStr).window.document
-    const table = document.querySelector("table")!
+    const dom = new JSDOM(tableStr)
+    const table = dom.window.document.querySelector("table")!
+    let maxId = parseInt(table.getAttribute("max") || "0")
 
     const res = []
 
     for (const item of rows) {
       if ("id" in item) {
-        // try to find matching row and update it. if we can't find it, insert a new row with the key
-        const row = document.getElementById(item.id as string)
-        if (row) {
+        const existingRow = dom.window.document.getElementById(
+          item.id as string
+        )
+
+        if (existingRow) {
           for (const [key, value] of Object.entries(item)) {
             if (key === "id") continue
-            row.setAttribute(key, (value as any).toString())
+            existingRow.setAttribute(key, value)
           }
-          if (returnRows) res.push(this.rowToKv(row))
+          returnRows && res.push(this.rowToKv(existingRow))
           continue
         }
       }
 
-      // insert a new row
-      const newRow = document.createElement("tr")
+      const newRow = table.insertRow()
+      newRow.id = "id" in item ? (item.id as string) : (++maxId).toString()
+      maxId = Math.max(maxId, parseInt(newRow.id))
+
       for (const [key, value] of Object.entries(item)) {
-        if (key === "id") {
-          newRow.id = (value as any).toString()
-          continue
-        }
-        newRow.setAttribute(key, (value as any).toString())
+        if (key === "id") continue
+        newRow.setAttribute(key, value)
       }
-      table.appendChild(newRow)
-      if (returnRows) res.push(this.rowToKv(newRow))
+      returnRows && res.push(this.rowToKv(newRow))
     }
-
+    table.setAttribute("max", maxId.toString())
     await this.writeTable(tableRef[symbol_internal].name, table)
-
     return returnRows ? res : undefined
+  }
+
+  private getConversionType(predA: PredicateValue, predB: PredicateValue) {
+    if (isTableColumn(predA)) {
+      return predA.type
+    } else if (isTableColumn(predB)) {
+      return predB.type
+    } else {
+      return "string"
+    }
+  }
+
+  private typeCast(value: string, type: string) {
+    switch (type) {
+      case "number":
+        return Number(value)
+      case "boolean":
+        return Boolean(value)
+      case "date":
+        return new Date(value)
+      default:
+        return value
+    }
+  }
+
+  private resolveValue(
+    value: PredicateValue,
+    row: Element
+  ): string | number | boolean | Date | null {
+    if (isTableColumn(value)) {
+      return row.getAttribute(value.name as string)
+    }
+    return value
   }
 
   private rowToKv(row: Element): Record<string, string> {

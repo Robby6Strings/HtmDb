@@ -2,7 +2,6 @@ import { Schema, createTable } from "./lib/schema"
 
 export const person = createTable({
   name: "person",
-  key: "id",
   columns: {
     id: {
       type: "number",
@@ -18,7 +17,6 @@ export const person = createTable({
 
 export const car = createTable({
   name: "car",
-  key: "id",
   columns: {
     id: {
       type: "number",

@@ -48,7 +48,8 @@ function selectExample() {
                 case 0:
                     queryStart = performance.now();
                     return [4 /*yield*/, db.select(schema_1.person, {
-                            where: [(0, predicate_1.gte)(schema_1.person.id, "15")],
+                            where: [(0, predicate_1.eq)(schema_1.person.id, schema_1.person.age)],
+                            //with: [join(car, eq(car.ownerId, person.id))],
                         })];
                 case 1:
                     res = _a.sent();
@@ -69,7 +70,7 @@ function upsertExample() {
                     return [4 /*yield*/, db.upsert(schema_1.person, [
                             {
                                 id: "1",
-                                name: "Bob",
+                                name: "James",
                             },
                         ], true)];
                 case 1:
