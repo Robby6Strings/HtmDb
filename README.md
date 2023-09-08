@@ -1,6 +1,6 @@
 <div align=center>
 
-# HtmlDb
+# HtmDb
 
 _The database you never knew you didn't need_
 
