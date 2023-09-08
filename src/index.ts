@@ -1,6 +1,5 @@
 import { HtmlDb } from "./lib"
-import { Join, eq, gte, lte, inArr, neq, gt } from "./lib/predicate"
-import { Table, TableConfig } from "./lib/schema"
+import { eq, inArr, neq } from "./lib/predicate"
 import { car, dbSchema, person } from "./schema"
 
 const db = new HtmlDb(dbSchema)
@@ -8,6 +7,7 @@ const db = new HtmlDb(dbSchema)
 async function selectExample() {
   const queryStart = performance.now()
   const res = await db.select(person, {
+    where: [inArr(person.id, [1, 2, 3])],
     with: [[car, [eq(car.ownerId, person.id)]]],
   })
   console.log(res)

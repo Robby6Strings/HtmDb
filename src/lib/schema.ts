@@ -42,19 +42,3 @@ export function createTable<T extends TableConfig>(tableConfig: T): Table<T> {
     { [symbol_internal]: tableConfig } as Table<T>
   )
 }
-
-// const person = createTable({
-//   name: "person",
-//   key: "id",
-//   columns: {
-//     id: {
-//       type: "number",
-//     },
-//     name: {
-//       type: "string",
-//     },
-//     age: {
-//       type: "number",
-//     },
-//   },
-// })

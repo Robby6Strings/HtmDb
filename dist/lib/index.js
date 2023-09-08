@@ -61,12 +61,24 @@ function isValidPrimitive(value) {
 }
 var HtmlDb = /** @class */ (function () {
     function HtmlDb(schema) {
+        var _this = this;
         this.schema = schema;
+        var _loop_1 = function (tableName) {
+            this_1.readTable(tableName).catch(function () {
+                console.log("Table ".concat(tableName, " not found, creating..."));
+                _this.createTable(tableName);
+            });
+        };
+        var this_1 = this;
+        for (var _i = 0, _a = Object.entries(this.schema); _i < _a.length; _i++) {
+            var tableName = _a[_i][0];
+            _loop_1(tableName);
+        }
     }
     HtmlDb.prototype.select = function (tableRef, predicates) {
         if (predicates === void 0) { predicates = {}; }
         return __awaiter(this, void 0, void 0, function () {
-            var tableStr, dom, table, filteredRows, res, _res, extraTables, _loop_1, this_1, _i, _a, _b, tbl, preds, alias;
+            var tableStr, dom, table, filteredRows, res, _res, extraTables, _loop_2, this_2, _i, _a, _b, tbl, preds, alias;
             var _this = this;
             return __generator(this, function (_c) {
                 switch (_c.label) {
@@ -150,13 +162,13 @@ var HtmlDb = /** @class */ (function () {
                             }))];
                     case 2:
                         extraTables = _c.sent();
-                        _loop_1 = function (tbl, preds, alias) {
+                        _loop_2 = function (tbl, preds, alias) {
                             var _alias = (alias !== null && alias !== void 0 ? alias : tbl[exports.symbol_internal].name);
                             var _d = extraTables.shift(), name_1 = _d.name, data = _d.data;
                             var dom_1 = new JSDOM(data);
                             var table_1 = dom_1.window.document.querySelector("table");
                             var rows = Array.from(table_1.querySelectorAll("tr"));
-                            var _loop_2 = function (pred) {
+                            var _loop_3 = function (pred) {
                                 var ctxColumn = void 0;
                                 var localColumn;
                                 if (!isTableColumn(pred.a) && !isTableColumn(pred.b)) {
@@ -181,10 +193,10 @@ var HtmlDb = /** @class */ (function () {
                                 if (!localColumn) {
                                     throw new Error("Unable to determine local table column for 'with' predicate");
                                 }
-                                var _loop_3 = function (row) {
+                                var _loop_4 = function (row) {
                                     var localVal = localColumn.name === "id"
                                         ? row.id
-                                        : this_1.resolveValue(localColumn, row);
+                                        : this_2.resolveValue(localColumn, row);
                                     if (localVal === null)
                                         return "continue";
                                     if (ctxColumn) {
@@ -204,13 +216,13 @@ var HtmlDb = /** @class */ (function () {
                                     else {
                                         // no ctx column, evaluate predicate against rows
                                         var _g = [
-                                            this_1.resolveValue(pred.a, row),
-                                            this_1.resolveValue(pred.b, row),
+                                            this_2.resolveValue(pred.a, row),
+                                            this_2.resolveValue(pred.b, row),
                                         ], a = _g[0], b = _g[1];
-                                        var conversionType = this_1.getConversionType(pred.a, pred.b);
+                                        var conversionType = this_2.getConversionType(pred.a, pred.b);
                                         var _h = [
-                                            this_1.typeCast(a, conversionType),
-                                            this_1.typeCast(b, conversionType),
+                                            this_2.typeCast(a, conversionType),
+                                            this_2.typeCast(b, conversionType),
                                         ], a_norm = _h[0], b_norm = _h[1];
                                         if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
                                             throw new Error("Must provide array with 'in' operator");
@@ -291,18 +303,18 @@ var HtmlDb = /** @class */ (function () {
                                 };
                                 for (var _f = 0, rows_1 = rows; _f < rows_1.length; _f++) {
                                     var row = rows_1[_f];
-                                    _loop_3(row);
+                                    _loop_4(row);
                                 }
                             };
                             for (var _e = 0, preds_1 = preds; _e < preds_1.length; _e++) {
                                 var pred = preds_1[_e];
-                                _loop_2(pred);
+                                _loop_3(pred);
                             }
                         };
-                        this_1 = this;
+                        this_2 = this;
                         for (_i = 0, _a = predicates.with; _i < _a.length; _i++) {
                             _b = _a[_i], tbl = _b[0], preds = _b[1], alias = _b[2];
-                            _loop_1(tbl, preds, alias);
+                            _loop_2(tbl, preds, alias);
                         }
                         _c.label = 3;
                     case 3: return [2 /*return*/, res];
@@ -432,6 +444,22 @@ var HtmlDb = /** @class */ (function () {
     };
     HtmlDb.prototype.writeTable = function (tableName, tableElement) {
         return fs_1.default.promises.writeFile(this.fileUrlFromTableName(tableName), tableElement.outerHTML);
+    };
+    HtmlDb.prototype.createTable = function (tableName) {
+        return __awaiter(this, void 0, void 0, function () {
+            var table;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        table = new JSDOM().window.document.createElement("table");
+                        table.setAttribute("max", "0");
+                        return [4 /*yield*/, this.writeTable(tableName, table)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        });
     };
     return HtmlDb;
 }());

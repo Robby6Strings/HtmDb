@@ -33,7 +33,32 @@ export const car = createTable({
   },
 })
 
+export const address = createTable({
+  name: "address",
+  columns: {
+    id: {
+      type: "number",
+    },
+    street: {
+      type: "string",
+    },
+    city: {
+      type: "string",
+    },
+    state: {
+      type: "string",
+    },
+    zip: {
+      type: "string",
+    },
+    personId: {
+      type: "number",
+    },
+  },
+})
+
 export const dbSchema: Schema = {
   person,
   car,
+  address,
 }

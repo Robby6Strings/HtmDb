@@ -34,7 +34,14 @@ function isValidPrimitive(value: any): value is PrimitiveValue {
 }
 
 export class HtmlDb {
-  constructor(private readonly schema: Schema) {}
+  constructor(private readonly schema: Schema) {
+    for (const [tableName] of Object.entries(this.schema)) {
+      this.readTable(tableName).catch(() => {
+        console.log(`Table ${tableName} not found, creating...`)
+        this.createTable(tableName)
+      })
+    }
+  }
 
   public async select<T extends Table<any>>(
     tableRef: T,
@@ -421,5 +428,11 @@ export class HtmlDb {
       this.fileUrlFromTableName(tableName),
       tableElement.outerHTML
     )
+  }
+
+  private async createTable(tableName: string) {
+    const table = new JSDOM().window.document.createElement("table")
+    table.setAttribute("max", "0")
+    await this.writeTable(tableName, table)
   }
 }

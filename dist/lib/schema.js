@@ -26,18 +26,3 @@ function createTable(tableConfig) {
     }, (_a = {}, _a[_1.symbol_internal] = tableConfig, _a));
 }
 exports.createTable = createTable;
-// const person = createTable({
-//   name: "person",
-//   key: "id",
-//   columns: {
-//     id: {
-//       type: "number",
-//     },
-//     name: {
-//       type: "string",
-//     },
-//     age: {
-//       type: "number",
-//     },
-//   },
-// })
