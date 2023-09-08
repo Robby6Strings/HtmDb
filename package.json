@@ -1,14 +1,16 @@
 {
   "name": "htmldb",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "The database you never knew you didn't need",
   "scripts": {
-    "dev": "tsc && node dist/index.js -w"
+    "dev": "tsc && node dist/index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "html",
+    "database"
+  ],
+  "author": "https://github.com/Robby6Strings",
+  "license": "MIT",
   "dependencies": {
     "jsdom": "^22.1.0"
   },
