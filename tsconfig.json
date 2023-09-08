@@ -5,7 +5,8 @@
     "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true ,
+    "lib" : [ "es2022" ]
   },
   "include": ["src"],
   "exclude": ["node_modules", "**/*.spec.ts"]
