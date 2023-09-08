@@ -198,98 +198,71 @@ export class HtmlDb {
                 this.typeCast(b, conversionType),
               ]
 
-              if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
-                throw new Error("Must provide array with 'in' operator")
+              if (pred.operator !== "in") {
+                if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
+                  throw new Error("Array without 'in' operator")
+                }
               }
 
               if (a_norm === null || b_norm === null) {
                 throw new Error("Unable to evaluate predicate with null value")
               }
 
+              const addToResults = () =>
+                _res.forEach((r) => {
+                  if (typeof r[_alias] === "string")
+                    throw new Error(
+                      "subquery selection alias conflicts with existing column"
+                    )
+                  if (!Array.isArray(r[_alias])) r[_alias] = []
+                  ;(r[_alias] as Record<string, string>[]).push(
+                    this.rowToKv(row)
+                  )
+                })
+
               switch (pred.operator) {
+                case "in":
+                  let arr: PrimitiveValue[]
+                  let notArr: PrimitiveValue
+                  if (Array.isArray(a_norm)) {
+                    arr = a_norm
+                    notArr = b_norm as PrimitiveValue
+                  } else {
+                    arr = b_norm as PrimitiveValue[]
+                    notArr = a_norm
+                  }
+                  if (arr.includes(notArr)) {
+                    addToResults()
+                  }
+
                 case "=":
                   if (a_norm === b_norm) {
-                    _res.forEach((r) => {
-                      if (typeof r[_alias] === "string")
-                        throw new Error(
-                          "subquery selection alias conflicts with existing column"
-                        )
-                      if (!Array.isArray(r[_alias])) r[_alias] = []
-                      ;(r[_alias] as Record<string, string>[]).push(
-                        this.rowToKv(row)
-                      )
-                    })
+                    addToResults()
                   }
                   break
                 case "!=":
                   if (a_norm !== b_norm) {
-                    _res.forEach((r) => {
-                      if (typeof r[_alias] === "string")
-                        throw new Error(
-                          "subquery selection alias conflicts with existing column"
-                        )
-                      if (!Array.isArray(r[_alias])) r[_alias] = []
-                      ;(r[_alias] as Record<string, string>[]).push(
-                        this.rowToKv(row)
-                      )
-                    })
+                    addToResults()
                   }
                   break
                 case ">":
                   if (a_norm > b_norm) {
-                    console.log(">", a_norm, b_norm)
-                    _res.forEach((r) => {
-                      if (typeof r[_alias] === "string")
-                        throw new Error(
-                          "subquery selection alias conflicts with existing column"
-                        )
-                      if (!Array.isArray(r[_alias])) r[_alias] = []
-                      ;(r[_alias] as Record<string, string>[]).push(
-                        this.rowToKv(row)
-                      )
-                    })
+                    addToResults()
                   }
                   break
                 case "<":
                   if (a_norm < b_norm) {
-                    _res.forEach((r) => {
-                      if (typeof r[_alias] === "string")
-                        throw new Error(
-                          "subquery selection alias conflicts with existing column"
-                        )
-                      if (!Array.isArray(r[_alias])) r[_alias] = []
-                      ;(r[_alias] as Record<string, string>[]).push(
-                        this.rowToKv(row)
-                      )
-                    })
+                    addToResults()
                   }
                   break
                 case ">=":
                   if (a_norm >= b_norm) {
-                    _res.forEach((r) => {
-                      if (typeof r[_alias] === "string")
-                        throw new Error(
-                          "subquery selection alias conflicts with existing column"
-                        )
-                      if (!Array.isArray(r[_alias])) r[_alias] = []
-                      ;(r[_alias] as Record<string, string>[]).push(
-                        this.rowToKv(row)
-                      )
-                    })
+                    addToResults()
                   }
                   break
                 case "<=":
                   if (a_norm <= b_norm) {
-                    _res.forEach((r) => {
-                      if (typeof r[_alias] === "string")
-                        throw new Error(
-                          "subquery selection alias conflicts with existing column"
-                        )
-                      if (!Array.isArray(r[_alias])) r[_alias] = []
-                      ;(r[_alias] as Record<string, string>[]).push(
-                        this.rowToKv(row)
-                      )
-                    })
+                    addToResults()
                   }
                   break
               }
@@ -297,6 +270,7 @@ export class HtmlDb {
           }
         }
       }
+      return res as Record<string, string | Record<string, string>[]>[]
     }
 
     return res
@@ -434,5 +408,6 @@ export class HtmlDb {
     const table = new JSDOM().window.document.createElement("table")
     table.setAttribute("max", "0")
     await this.writeTable(tableName, table)
+    return table.outerHTML
   }
 }
