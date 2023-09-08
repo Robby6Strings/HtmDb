@@ -13,9 +13,10 @@
   "license": "MIT",
   "dependencies": {
     "jsdom": "^22.1.0"
-  },
-  "devDependencies": {
-    "@types/jsdom": "^21.1.2",
-    "@types/node": "^20.5.7"
-  }
+},
+    "devDependencies": {
+        "typescript": "^5.2.2" ,
+        "@types/jsdom": "^21.1.2",
+        "@types/node": "^20.5.9"
+    }
 }
