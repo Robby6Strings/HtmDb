@@ -39,22 +39,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HtmlDb = exports.join = exports.symbol_internal = void 0;
+exports.HtmlDb = exports.symbol_internal = void 0;
 var path_1 = __importDefault(require("path"));
 var fs_1 = __importDefault(require("fs"));
 var url_1 = require("url");
 var jsdom_1 = __importDefault(require("jsdom"));
 var JSDOM = jsdom_1.default.JSDOM;
 exports.symbol_internal = Symbol("_");
-function join(table, predicate) {
-    return [table, predicate];
-}
-exports.join = join;
 function isTableColumn(value) {
     return (typeof value === "object" &&
         value !== null &&
         "name" in value &&
         "table" in value);
+}
+function isValidPrimitive(value) {
+    return (typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        value instanceof Date ||
+        value === null);
 }
 var HtmlDb = /** @class */ (function () {
     function HtmlDb(schema) {
@@ -63,13 +66,13 @@ var HtmlDb = /** @class */ (function () {
     HtmlDb.prototype.select = function (tableRef, predicates) {
         if (predicates === void 0) { predicates = {}; }
         return __awaiter(this, void 0, void 0, function () {
-            var tableStr, dom, table, filteredRows;
+            var tableStr, dom, table, filteredRows, res, _res, extraTables, _loop_1, this_1, _i, _a, _b, tbl, preds, alias;
             var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0: return [4 /*yield*/, this.readTable(tableRef[exports.symbol_internal].name)];
                     case 1:
-                        tableStr = _a.sent();
+                        tableStr = _c.sent();
                         dom = new JSDOM(tableStr);
                         table = dom.window.document.querySelector("table");
                         filteredRows = Array.from(table.rows).filter(function (row) {
@@ -78,21 +81,35 @@ var HtmlDb = /** @class */ (function () {
                                 var a = _this.resolveValue(predicate.a, row);
                                 var b = _this.resolveValue(predicate.b, row);
                                 var conversionType = _this.getConversionType(predicate.a, predicate.b);
-                                if (a === null || b === null) {
+                                var _a = [
+                                    _this.typeCast(a, conversionType),
+                                    _this.typeCast(b, conversionType),
+                                ], a_norm = _a[0], b_norm = _a[1];
+                                if (a_norm === null || b_norm === null) {
                                     if (predicate.operator === "=") {
-                                        return a === b;
+                                        return a_norm === b_norm;
                                     }
                                     else if (predicate.operator === "!=") {
-                                        return a !== b;
+                                        return a_norm !== b_norm;
                                     }
                                     else {
                                         return false;
                                     }
                                 }
-                                var _a = [
-                                    _this.typeCast(a.toString(), conversionType),
-                                    _this.typeCast(b.toString(), conversionType),
-                                ], a_norm = _a[0], b_norm = _a[1];
+                                if (Array.isArray(a_norm))
+                                    throw new Error("Cannot provide array as lhs");
+                                if (predicate.operator === "in") {
+                                    if (!Array.isArray(b_norm)) {
+                                        throw new Error("Must provide an array with 'in' operator");
+                                    }
+                                    else if (Array.isArray(a_norm)) {
+                                        throw new Error("'in' operator rhs must be array of primitives");
+                                    }
+                                    return b_norm.includes(a_norm);
+                                }
+                                if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
+                                    throw new Error("Must provide array with 'in' operator");
+                                }
                                 switch (predicate.operator) {
                                     case "=":
                                         return a_norm === b_norm;
@@ -109,9 +126,186 @@ var HtmlDb = /** @class */ (function () {
                                 }
                             });
                         });
-                        return [2 /*return*/, filteredRows
-                                .slice(0, predicates.limit || Infinity)
-                                .map(function (row) { return _this.rowToKv(row); })];
+                        res = filteredRows
+                            .slice(0, predicates.limit || Infinity)
+                            .map(function (row) { return _this.rowToKv(row); });
+                        if (!predicates.with) return [3 /*break*/, 3];
+                        _res = res;
+                        return [4 /*yield*/, Promise.all(predicates.with.map(function (_a) {
+                                var table = _a[0];
+                                return __awaiter(_this, void 0, void 0, function () {
+                                    var tblData;
+                                    return __generator(this, function (_b) {
+                                        switch (_b.label) {
+                                            case 0: return [4 /*yield*/, this.readTable(table[exports.symbol_internal].name)];
+                                            case 1:
+                                                tblData = _b.sent();
+                                                return [2 /*return*/, {
+                                                        name: table[exports.symbol_internal].name,
+                                                        data: tblData,
+                                                    }];
+                                        }
+                                    });
+                                });
+                            }))];
+                    case 2:
+                        extraTables = _c.sent();
+                        _loop_1 = function (tbl, preds, alias) {
+                            var _alias = (alias !== null && alias !== void 0 ? alias : tbl[exports.symbol_internal].name);
+                            var _d = extraTables.shift(), name_1 = _d.name, data = _d.data;
+                            var dom_1 = new JSDOM(data);
+                            var table_1 = dom_1.window.document.querySelector("table");
+                            var rows = Array.from(table_1.querySelectorAll("tr"));
+                            var _loop_2 = function (pred) {
+                                var ctxColumn = void 0;
+                                var localColumn;
+                                if (!isTableColumn(pred.a) && !isTableColumn(pred.b)) {
+                                    throw new Error("Must provide at least one table column");
+                                }
+                                if (isTableColumn(pred.a)) {
+                                    if (pred.a.table === tableRef[exports.symbol_internal].name) {
+                                        ctxColumn = pred.a;
+                                    }
+                                    else if (pred.a.table === name_1) {
+                                        localColumn = pred.a;
+                                    }
+                                }
+                                if (isTableColumn(pred.b)) {
+                                    if (pred.b.table === tableRef[exports.symbol_internal].name) {
+                                        ctxColumn = pred.b;
+                                    }
+                                    else if (pred.b.table === name_1) {
+                                        localColumn = pred.b;
+                                    }
+                                }
+                                if (!localColumn) {
+                                    throw new Error("Unable to determine local table column for 'with' predicate");
+                                }
+                                var _loop_3 = function (row) {
+                                    var localVal = localColumn.name === "id"
+                                        ? row.id
+                                        : this_1.resolveValue(localColumn, row);
+                                    if (localVal === null)
+                                        return "continue";
+                                    if (ctxColumn) {
+                                        var colName_1 = ctxColumn.name;
+                                        // find matching rows in ctx table, assign to _res[_alias]
+                                        _res.forEach(function (r) {
+                                            if (_this.typeCast(r[colName_1], localColumn.type) !=
+                                                localVal)
+                                                return;
+                                            if (typeof r[_alias] === "string")
+                                                throw new Error("subquery selection alias conflicts with existing column");
+                                            if (!Array.isArray(r[_alias]))
+                                                r[_alias] = [];
+                                            r[_alias].push(_this.rowToKv(row));
+                                        });
+                                    }
+                                    else {
+                                        // no ctx column, evaluate predicate against rows
+                                        var _g = [
+                                            this_1.resolveValue(pred.a, row),
+                                            this_1.resolveValue(pred.b, row),
+                                        ], a = _g[0], b = _g[1];
+                                        var conversionType = this_1.getConversionType(pred.a, pred.b);
+                                        var _h = [
+                                            this_1.typeCast(a, conversionType),
+                                            this_1.typeCast(b, conversionType),
+                                        ], a_norm = _h[0], b_norm = _h[1];
+                                        if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
+                                            throw new Error("Must provide array with 'in' operator");
+                                        }
+                                        if (a_norm === null || b_norm === null) {
+                                            throw new Error("Unable to evaluate predicate with null value");
+                                        }
+                                        switch (pred.operator) {
+                                            case "=":
+                                                if (a_norm === b_norm) {
+                                                    _res.forEach(function (r) {
+                                                        if (typeof r[_alias] === "string")
+                                                            throw new Error("subquery selection alias conflicts with existing column");
+                                                        if (!Array.isArray(r[_alias]))
+                                                            r[_alias] = [];
+                                                        r[_alias].push(_this.rowToKv(row));
+                                                    });
+                                                }
+                                                break;
+                                            case "!=":
+                                                if (a_norm !== b_norm) {
+                                                    _res.forEach(function (r) {
+                                                        if (typeof r[_alias] === "string")
+                                                            throw new Error("subquery selection alias conflicts with existing column");
+                                                        if (!Array.isArray(r[_alias]))
+                                                            r[_alias] = [];
+                                                        r[_alias].push(_this.rowToKv(row));
+                                                    });
+                                                }
+                                                break;
+                                            case ">":
+                                                if (a_norm > b_norm) {
+                                                    console.log(">", a_norm, b_norm);
+                                                    _res.forEach(function (r) {
+                                                        if (typeof r[_alias] === "string")
+                                                            throw new Error("subquery selection alias conflicts with existing column");
+                                                        if (!Array.isArray(r[_alias]))
+                                                            r[_alias] = [];
+                                                        r[_alias].push(_this.rowToKv(row));
+                                                    });
+                                                }
+                                                break;
+                                            case "<":
+                                                if (a_norm < b_norm) {
+                                                    _res.forEach(function (r) {
+                                                        if (typeof r[_alias] === "string")
+                                                            throw new Error("subquery selection alias conflicts with existing column");
+                                                        if (!Array.isArray(r[_alias]))
+                                                            r[_alias] = [];
+                                                        r[_alias].push(_this.rowToKv(row));
+                                                    });
+                                                }
+                                                break;
+                                            case ">=":
+                                                if (a_norm >= b_norm) {
+                                                    _res.forEach(function (r) {
+                                                        if (typeof r[_alias] === "string")
+                                                            throw new Error("subquery selection alias conflicts with existing column");
+                                                        if (!Array.isArray(r[_alias]))
+                                                            r[_alias] = [];
+                                                        r[_alias].push(_this.rowToKv(row));
+                                                    });
+                                                }
+                                                break;
+                                            case "<=":
+                                                if (a_norm <= b_norm) {
+                                                    _res.forEach(function (r) {
+                                                        if (typeof r[_alias] === "string")
+                                                            throw new Error("subquery selection alias conflicts with existing column");
+                                                        if (!Array.isArray(r[_alias]))
+                                                            r[_alias] = [];
+                                                        r[_alias].push(_this.rowToKv(row));
+                                                    });
+                                                }
+                                                break;
+                                        }
+                                    }
+                                };
+                                for (var _f = 0, rows_1 = rows; _f < rows_1.length; _f++) {
+                                    var row = rows_1[_f];
+                                    _loop_3(row);
+                                }
+                            };
+                            for (var _e = 0, preds_1 = preds; _e < preds_1.length; _e++) {
+                                var pred = preds_1[_e];
+                                _loop_2(pred);
+                            }
+                        };
+                        this_1 = this;
+                        for (_i = 0, _a = predicates.with; _i < _a.length; _i++) {
+                            _b = _a[_i], tbl = _b[0], preds = _b[1], alias = _b[2];
+                            _loop_1(tbl, preds, alias);
+                        }
+                        _c.label = 3;
+                    case 3: return [2 /*return*/, res];
                 }
             });
         });
@@ -119,7 +313,7 @@ var HtmlDb = /** @class */ (function () {
     HtmlDb.prototype.upsert = function (tableRef, rows, returnRows) {
         if (returnRows === void 0) { returnRows = false; }
         return __awaiter(this, void 0, void 0, function () {
-            var tableStr, dom, table, maxId, res, _i, rows_1, item, existingRow, _a, _b, _c, key, value, newRow, _d, _e, _f, key, value;
+            var tableStr, dom, table, maxId, res, _i, rows_2, item, existingRow, _a, _b, _c, key, value, newRow, _d, _e, _f, key, value;
             return __generator(this, function (_g) {
                 switch (_g.label) {
                     case 0: return [4 /*yield*/, this.readTable(tableRef[exports.symbol_internal].name)];
@@ -129,8 +323,8 @@ var HtmlDb = /** @class */ (function () {
                         table = dom.window.document.querySelector("table");
                         maxId = parseInt(table.getAttribute("max") || "0");
                         res = [];
-                        for (_i = 0, rows_1 = rows; _i < rows_1.length; _i++) {
-                            item = rows_1[_i];
+                        for (_i = 0, rows_2 = rows; _i < rows_2.length; _i++) {
+                            item = rows_2[_i];
                             if ("id" in item) {
                                 existingRow = dom.window.document.getElementById(item.id);
                                 if (existingRow) {
@@ -172,17 +366,47 @@ var HtmlDb = /** @class */ (function () {
             return predB.type;
         }
         else {
-            return "string";
+            if (isTableColumn(predA))
+                return predA.type;
+            if (isTableColumn(predB))
+                return predB.type;
+            if (isValidPrimitive(predA))
+                return typeof predA;
+            if (isValidPrimitive(predB))
+                return typeof predB;
+            throw new Error("Unable to determine conversion type");
         }
     };
     HtmlDb.prototype.typeCast = function (value, type) {
+        if (value === null)
+            return null;
+        if (Array.isArray(value)) {
+            return value.map(function (v) {
+                if (v === null)
+                    return null;
+                switch (type) {
+                    case "number":
+                        return Number(v);
+                    case "boolean":
+                        return Boolean(v);
+                    case "date":
+                        return new Date(v.toString());
+                    case "datetime":
+                        return new Date(v.toString());
+                    default:
+                        return v;
+                }
+            });
+        }
         switch (type) {
             case "number":
                 return Number(value);
             case "boolean":
                 return Boolean(value);
             case "date":
-                return new Date(value);
+                return new Date(value.toString());
+            case "datetime":
+                return new Date(value.toString());
             default:
                 return value;
         }

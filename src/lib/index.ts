@@ -4,17 +4,15 @@ import { pathToFileURL } from "url"
 import jsdom from "jsdom"
 const { JSDOM } = jsdom
 
-import { Join, Predicate, PredicateOptions, PredicateValue } from "./predicate"
+import {
+  PredicateOptions,
+  PredicateValue,
+  PrimitiveType,
+  PrimitiveValue,
+} from "./predicate"
 import { Schema, Table, TableColumn, TableConfig } from "./schema"
 
 export const symbol_internal = Symbol("_")
-
-export function join<TC extends TableConfig>(
-  table: Table<TC>,
-  predicate: Predicate
-): Join<TC> {
-  return [table, predicate]
-}
 
 function isTableColumn(value: PredicateValue): value is TableColumn<any> {
   return (
@@ -22,6 +20,16 @@ function isTableColumn(value: PredicateValue): value is TableColumn<any> {
     value !== null &&
     "name" in value &&
     "table" in value
+  )
+}
+
+function isValidPrimitive(value: any): value is PrimitiveValue {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value instanceof Date ||
+    value === null
   )
 }
 
@@ -40,23 +48,37 @@ export class HtmlDb {
       return predicates.where?.every((predicate) => {
         const a = this.resolveValue(predicate.a, row)
         const b = this.resolveValue(predicate.b, row)
-
         const conversionType = this.getConversionType(predicate.a, predicate.b)
 
-        if (a === null || b === null) {
+        const [a_norm, b_norm] = [
+          this.typeCast(a, conversionType),
+          this.typeCast(b, conversionType),
+        ]
+
+        if (a_norm === null || b_norm === null) {
           if (predicate.operator === "=") {
-            return a === b
+            return a_norm === b_norm
           } else if (predicate.operator === "!=") {
-            return a !== b
+            return a_norm !== b_norm
           } else {
             return false
           }
         }
+        if (Array.isArray(a_norm))
+          throw new Error("Cannot provide array as lhs")
 
-        const [a_norm, b_norm] = [
-          this.typeCast(a.toString(), conversionType),
-          this.typeCast(b.toString(), conversionType),
-        ]
+        if (predicate.operator === "in") {
+          if (!Array.isArray(b_norm)) {
+            throw new Error("Must provide an array with 'in' operator")
+          } else if (Array.isArray(a_norm)) {
+            throw new Error("'in' operator rhs must be array of primitives")
+          }
+          return b_norm.includes(a_norm)
+        }
+
+        if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
+          throw new Error("Must provide array with 'in' operator")
+        }
 
         switch (predicate.operator) {
           case "=":
@@ -75,9 +97,197 @@ export class HtmlDb {
       })
     })
 
-    return filteredRows
+    const res: Record<string, string>[] = filteredRows
       .slice(0, predicates.limit || Infinity)
       .map((row) => this.rowToKv(row))
+
+    if (predicates.with) {
+      const _res = res as Record<string, string | Record<string, string>[]>[]
+      const extraTables = await Promise.all(
+        predicates.with.map(async ([table]) => {
+          const tblData = await this.readTable(table[symbol_internal].name)
+          return {
+            name: table[symbol_internal].name,
+            data: tblData,
+          }
+        })
+      )
+
+      for (let [tbl, preds, alias] of predicates.with) {
+        const _alias = (alias ?? tbl[symbol_internal].name) as string
+        const { name, data } = extraTables.shift()!
+        const dom = new JSDOM(data)
+        const table = dom.window.document.querySelector("table")!
+        const rows = Array.from(table.querySelectorAll("tr"))
+
+        for (const pred of preds) {
+          let ctxColumn: TableColumn<any> | undefined
+          let localColumn: TableColumn<any> | undefined
+
+          if (!isTableColumn(pred.a) && !isTableColumn(pred.b)) {
+            throw new Error("Must provide at least one table column")
+          }
+          if (isTableColumn(pred.a)) {
+            if (pred.a.table === tableRef[symbol_internal].name) {
+              ctxColumn = pred.a
+            } else if (pred.a.table === name) {
+              localColumn = pred.a
+            }
+          }
+          if (isTableColumn(pred.b)) {
+            if (pred.b.table === tableRef[symbol_internal].name) {
+              ctxColumn = pred.b
+            } else if (pred.b.table === name) {
+              localColumn = pred.b
+            }
+          }
+
+          if (!localColumn) {
+            throw new Error(
+              "Unable to determine local table column for 'with' predicate"
+            )
+          }
+
+          for (const row of rows) {
+            const localVal =
+              localColumn.name === "id"
+                ? row.id
+                : (this.resolveValue(localColumn, row) as PrimitiveValue)
+
+            if (localVal === null) continue
+
+            if (ctxColumn) {
+              const colName = ctxColumn.name as string
+              // find matching rows in ctx table, assign to _res[_alias]
+              _res.forEach((r) => {
+                if (
+                  this.typeCast(r[colName] as string, localColumn!.type) !=
+                  localVal
+                )
+                  return
+
+                if (typeof r[_alias] === "string")
+                  throw new Error(
+                    "subquery selection alias conflicts with existing column"
+                  )
+                if (!Array.isArray(r[_alias])) r[_alias] = []
+                ;(r[_alias] as Record<string, string>[]).push(this.rowToKv(row))
+              })
+            } else {
+              // no ctx column, evaluate predicate against rows
+              const [a, b] = [
+                this.resolveValue(pred.a, row),
+                this.resolveValue(pred.b, row),
+              ]
+
+              const conversionType = this.getConversionType(pred.a, pred.b)
+              const [a_norm, b_norm] = [
+                this.typeCast(a, conversionType),
+                this.typeCast(b, conversionType),
+              ]
+
+              if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
+                throw new Error("Must provide array with 'in' operator")
+              }
+
+              if (a_norm === null || b_norm === null) {
+                throw new Error("Unable to evaluate predicate with null value")
+              }
+
+              switch (pred.operator) {
+                case "=":
+                  if (a_norm === b_norm) {
+                    _res.forEach((r) => {
+                      if (typeof r[_alias] === "string")
+                        throw new Error(
+                          "subquery selection alias conflicts with existing column"
+                        )
+                      if (!Array.isArray(r[_alias])) r[_alias] = []
+                      ;(r[_alias] as Record<string, string>[]).push(
+                        this.rowToKv(row)
+                      )
+                    })
+                  }
+                  break
+                case "!=":
+                  if (a_norm !== b_norm) {
+                    _res.forEach((r) => {
+                      if (typeof r[_alias] === "string")
+                        throw new Error(
+                          "subquery selection alias conflicts with existing column"
+                        )
+                      if (!Array.isArray(r[_alias])) r[_alias] = []
+                      ;(r[_alias] as Record<string, string>[]).push(
+                        this.rowToKv(row)
+                      )
+                    })
+                  }
+                  break
+                case ">":
+                  if (a_norm > b_norm) {
+                    console.log(">", a_norm, b_norm)
+                    _res.forEach((r) => {
+                      if (typeof r[_alias] === "string")
+                        throw new Error(
+                          "subquery selection alias conflicts with existing column"
+                        )
+                      if (!Array.isArray(r[_alias])) r[_alias] = []
+                      ;(r[_alias] as Record<string, string>[]).push(
+                        this.rowToKv(row)
+                      )
+                    })
+                  }
+                  break
+                case "<":
+                  if (a_norm < b_norm) {
+                    _res.forEach((r) => {
+                      if (typeof r[_alias] === "string")
+                        throw new Error(
+                          "subquery selection alias conflicts with existing column"
+                        )
+                      if (!Array.isArray(r[_alias])) r[_alias] = []
+                      ;(r[_alias] as Record<string, string>[]).push(
+                        this.rowToKv(row)
+                      )
+                    })
+                  }
+                  break
+                case ">=":
+                  if (a_norm >= b_norm) {
+                    _res.forEach((r) => {
+                      if (typeof r[_alias] === "string")
+                        throw new Error(
+                          "subquery selection alias conflicts with existing column"
+                        )
+                      if (!Array.isArray(r[_alias])) r[_alias] = []
+                      ;(r[_alias] as Record<string, string>[]).push(
+                        this.rowToKv(row)
+                      )
+                    })
+                  }
+                  break
+                case "<=":
+                  if (a_norm <= b_norm) {
+                    _res.forEach((r) => {
+                      if (typeof r[_alias] === "string")
+                        throw new Error(
+                          "subquery selection alias conflicts with existing column"
+                        )
+                      if (!Array.isArray(r[_alias])) r[_alias] = []
+                      ;(r[_alias] as Record<string, string>[]).push(
+                        this.rowToKv(row)
+                      )
+                    })
+                  }
+                  break
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return res
   }
 
   public async upsert<T extends Table<any>>(
@@ -123,24 +333,54 @@ export class HtmlDb {
     return returnRows ? res : undefined
   }
 
-  private getConversionType(predA: PredicateValue, predB: PredicateValue) {
+  private getConversionType(
+    predA: PredicateValue,
+    predB: PredicateValue
+  ): PrimitiveType {
     if (isTableColumn(predA)) {
       return predA.type
     } else if (isTableColumn(predB)) {
       return predB.type
     } else {
-      return "string"
+      if (isTableColumn(predA)) return predA.type
+      if (isTableColumn(predB)) return predB.type
+      if (isValidPrimitive(predA)) return typeof predA as PrimitiveType
+      if (isValidPrimitive(predB)) return typeof predB as PrimitiveType
+      throw new Error("Unable to determine conversion type")
     }
   }
 
-  private typeCast(value: string, type: string) {
+  private typeCast(
+    value: PrimitiveValue | PrimitiveValue[],
+    type: PrimitiveType
+  ): PrimitiveValue | PrimitiveValue[] {
+    if (value === null) return null
+    if (Array.isArray(value)) {
+      return value.map((v) => {
+        if (v === null) return null
+        switch (type) {
+          case "number":
+            return Number(v)
+          case "boolean":
+            return Boolean(v)
+          case "date":
+            return new Date(v.toString())
+          case "datetime":
+            return new Date(v.toString())
+          default:
+            return v
+        }
+      })
+    }
     switch (type) {
       case "number":
         return Number(value)
       case "boolean":
         return Boolean(value)
       case "date":
-        return new Date(value)
+        return new Date(value.toString())
+      case "datetime":
+        return new Date(value.toString())
       default:
         return value
     }
@@ -149,7 +389,7 @@ export class HtmlDb {
   private resolveValue(
     value: PredicateValue,
     row: Element
-  ): string | number | boolean | Date | null {
+  ): PrimitiveValue | PrimitiveValue[] {
     if (isTableColumn(value)) {
       return row.getAttribute(value.name as string)
     }

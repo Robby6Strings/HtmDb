@@ -3,10 +3,10 @@ import { Table, TableColumn, TableConfig } from "./schema"
 export type PredicateOptions = {
   where?: Predicate[]
   limit?: number
-  //with?: Join<any>[]
+  with?: Join<any>[]
 }
 
-export type Join<TC extends TableConfig> = [Table<TC>, Predicate]
+export type Join<TC extends TableConfig> = [Table<TC>, Predicate[], string?]
 
 export type Predicate = {
   a: PredicateValue
@@ -14,13 +14,19 @@ export type Predicate = {
   operator: Operator
 }
 
-export type Operator = "=" | "!=" | ">" | "<" | ">=" | "<="
+export type Operator = "=" | "!=" | ">" | "<" | ">=" | "<=" | "in"
+export type PrimitiveValue = string | number | boolean | Date | null
+export type PrimitiveType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "date"
+  | "datetime"
+  | "null"
+
 export type PredicateValue =
-  | string
-  | number
-  | boolean
-  | Date
-  | null
+  | PrimitiveValue
+  | Array<PrimitiveValue>
   | TableColumn<any>
 
 export const eq = (a: PredicateValue, b: PredicateValue) => {
@@ -45,6 +51,10 @@ export const gte = (a: PredicateValue, b: PredicateValue) => {
 
 export const lte = (a: PredicateValue, b: PredicateValue) => {
   return createPredicate(a, b, "<=")
+}
+
+export const inArr = (a: TableColumn<any>, b: Array<PrimitiveValue>) => {
+  return createPredicate(a, b, "in")
 }
 
 function createPredicate(

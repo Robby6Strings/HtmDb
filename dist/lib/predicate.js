@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.lte = exports.gte = exports.lt = exports.gt = exports.neq = exports.eq = void 0;
+exports.inArr = exports.lte = exports.gte = exports.lt = exports.gt = exports.neq = exports.eq = void 0;
 var eq = function (a, b) {
     return createPredicate(a, b, "=");
 };
@@ -25,6 +25,10 @@ var lte = function (a, b) {
     return createPredicate(a, b, "<=");
 };
 exports.lte = lte;
+var inArr = function (a, b) {
+    return createPredicate(a, b, "in");
+};
+exports.inArr = inArr;
 function createPredicate(a, b, operator) {
     return {
         a: a,
