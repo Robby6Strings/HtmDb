@@ -81,11 +81,8 @@ class HtmlDb {
                     case '=' : return a_norm === b_norm
                     }
 
-                if (predicate.operator !== "in") {
-                    if (Array.isArray(a_norm) || Array.isArray(b_norm)) {
-                    throw new Error("Array without 'in' operator")
-                    }
-                }
+                if (Array.isArray(a_norm))
+                    throw new Error("Cannot provide array as lhs")
 
                 if (predicate.operator === "in") {
                     if (!Array.isArray(b_norm)) {
