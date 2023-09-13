@@ -1,70 +1,86 @@
-import { Table, TableColumn, TableConfig } from "./schema"
 
-export type PredicateOptions = {
-  where?: Predicate[]
-  limit?: number
-  with?: Join<any>[]
+export {
+    PredicateOptions , PrimitiveValue , PrimitiveType ,
+    PredicateValue , Predicate , Operator
 }
 
-export type Join<TC extends TableConfig> = [Table<TC>, Predicate[], string?]
+export { inArr , lte , gte , neq , gt , lt , eq }
 
-export type Predicate = {
-  a: PredicateValue
-  b: PredicateValue
-  operator: Operator
+import { TableConfig , TableColumn , Table } from './schema'
+
+
+interface PredicateOptions {
+    where ?: Array<Predicate>
+    limit ?: number
+    with ?: Array<Join<any>>
 }
 
-export type Operator = "=" | "!=" | ">" | "<" | ">=" | "<=" | "in"
-export type PrimitiveValue = string | number | boolean | Date | null
-export type PrimitiveType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "date"
-  | "datetime"
-  | "null"
+type Join<TC extends TableConfig> = [
+    Table<TC> , Array<Predicate> , string?
+]
 
-export type PredicateValue =
-  | PrimitiveValue
-  | Array<PrimitiveValue>
-  | TableColumn<any>
-
-export const eq = (a: PredicateValue, b: PredicateValue) => {
-  return createPredicate(a, b, "=")
+interface Predicate {
+    operator : Operator
+    a : PredicateValue
+    b : PredicateValue
 }
 
-export const neq = (a: PredicateValue, b: PredicateValue) => {
-  return createPredicate(a, b, "!=")
-}
 
-export const gt = (a: PredicateValue, b: PredicateValue) => {
-  return createPredicate(a, b, ">")
-}
+type Operator =
+    | '!='
+    | '>='
+    | '<='
+    | 'in'
+    | '>'
+    | '='
+    | '<'
 
-export const lt = (a: PredicateValue, b: PredicateValue) => {
-  return createPredicate(a, b, "<")
-}
+type PrimitiveValue =
+    | boolean
+    | string
+    | number
+    | Date
+    | null
 
-export const gte = (a: PredicateValue, b: PredicateValue) => {
-  return createPredicate(a, b, ">=")
-}
+type PrimitiveType =
+    | 'datetime'
+    | 'boolean'
+    | 'string'
+    | 'number'
+    | 'date'
+    | 'null'
 
-export const lte = (a: PredicateValue, b: PredicateValue) => {
-  return createPredicate(a, b, "<=")
-}
 
-export const inArr = (a: TableColumn<any>, b: Array<PrimitiveValue>) => {
-  return createPredicate(a, b, "in")
-}
+type PredicateValue =
+    | Array<PrimitiveValue>
+    | PrimitiveValue
+    | TableColumn<any>
 
-function createPredicate(
-  a: PredicateValue,
-  b: PredicateValue,
-  operator: Operator
-): Predicate {
-  return {
-    a,
-    b,
-    operator,
-  }
-}
+
+const eq = ( a : PredicateValue , b : PredicateValue ) =>
+    createPredicate('=',a,b)
+
+const neq = ( a : PredicateValue , b : PredicateValue ) =>
+    createPredicate('!=',a,b)
+
+const gt = ( a : PredicateValue , b : PredicateValue ) =>
+    createPredicate('>',a,b)
+
+const lt = ( a : PredicateValue , b : PredicateValue ) =>
+    createPredicate('<',a,b)
+
+const gte = ( a : PredicateValue , b : PredicateValue ) =>
+    createPredicate('>=',a,b)
+
+const lte = ( a : PredicateValue , b : PredicateValue ) =>
+    createPredicate('<=',a,b)
+
+const inArr = ( a : TableColumn<any> , b : Array<PrimitiveValue> ) =>
+    createPredicate('in',a,b)
+
+
+const createPredicate = (
+    operator : Operator ,
+    a : PredicateValue ,
+    b : PredicateValue
+) => ({ operator , b , a }) satisfies Predicate

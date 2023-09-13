@@ -1,44 +1,56 @@
-import { symbol_internal } from "."
 
-export type ColumnConfig = {
-  type: "string" | "number" | "boolean" | "date" | "datetime"
+export type {
+    ColumnConfig , TableConfig , TableColumn ,
+    TableColumns , Schema , Table
 }
 
-export type TableConfig = {
-  name: string
-  columns: Record<string, ColumnConfig>
+export { createTable }
+
+import { symbol_internal } from '.'
+
+
+type ColumnConfig = {
+    type : 'boolean' | 'datetime' | 'string' | 'number' | 'date'
 }
 
-export type Schema = {
-  [key: string]: Table<any>
+type TableConfig = {
+    columns : Record<string,ColumnConfig>
+    name : string
 }
 
-export type TableColumn<T extends TableConfig> = {
-  name: keyof T["columns"]
-  table: T["name"]
-  type: T["columns"][keyof T["columns"]]["type"]
+type Schema = Record<string,Table<any>>
+
+
+type TableColumn<T extends TableConfig> = {
+    table : T[ 'name' ]
+    type : T[ 'columns' ][ keyof T[ 'columns' ]][ 'type' ]
+    name : keyof T[ 'columns' ]
 }
 
-export type TableColumns<T extends TableConfig> = {
-  [k in keyof T["columns"]]: TableColumn<T>
+
+type TableColumns<T extends TableConfig> = {
+    [ Key in keyof T[ 'columns' ]]: TableColumn<T>
 }
 
-export type Table<T extends TableConfig> = TableColumns<T> & {
-  [symbol_internal]: TableConfig
+type Table<T extends TableConfig> = TableColumns<T> & {
+    [ symbol_internal ] : TableConfig
 }
 
-export function createTable<T extends TableConfig>(tableConfig: T): Table<T> {
-  return Object.entries(tableConfig.columns).reduce(
-    (acc, [key]) => {
-      return {
-        ...acc,
-        [key]: {
-          name: key,
-          table: tableConfig.name,
-          type: tableConfig.columns[key].type,
-        },
-      }
-    },
-    { [symbol_internal]: tableConfig } as Table<T>
-  )
+
+function createTable <Type extends TableConfig> ( config : Type ) : Table<Type> {
+    return Object
+        .entries(config.columns)
+        .reduce(( account , [ key ] ) => ({
+
+            ... account ,
+
+            [ key ] : {
+                table : config.name ,
+                type : config.columns[ key ].type ,
+                name : key
+            }
+        }),{
+            [ symbol_internal ] : config
+        } as Table<Type>
+    )
 }
